@@ -1,0 +1,166 @@
+// src/index.ts
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createVisualServer, type VisualServer } from "./server.js";
+import type { ClientMessage } from "./protocol.js";
+import { createVisualTool } from "./tool.js";
+
+interface VisualState {
+  active: boolean;
+  server: VisualServer | null;
+  blocksRendered: number;
+}
+
+export default function (pi: ExtensionAPI) {
+  const state: VisualState = {
+    active: false,
+    server: null,
+    blocksRendered: 0,
+  };
+
+  function setStatus(connected: boolean) {
+    if (!state.active) {
+      pi.setStatus("pi-visual", undefined);
+      return;
+    }
+    pi.setStatus(
+      "pi-visual",
+      connected ? "visual: connected ●" : "visual: disconnected ○",
+    );
+  }
+
+  async function startVisual(ctx: { cwd: string; hasUI: boolean }): Promise<boolean> {
+    if (state.active) return true;
+
+    // Resolve spa directory relative to this file
+    const thisFile = new URL(import.meta.url);
+    // import.meta.url for jiti is the .ts file path (may be file:///C:/... or file:///...)
+    const thisDir = decodeURIComponent(new URL(".", thisFile).pathname);
+    const spaDir = new URL("../spa", thisFile).pathname;
+    // On Windows, remove leading slash from file:///C:/...
+    const normalizedSpaDir = process.platform === "win32" && spaDir.startsWith("/") ? spaDir.slice(1) : spaDir;
+
+    try {
+      const server = await createVisualServer(normalizedSpaDir);
+      state.server = server;
+      state.active = true;
+      state.blocksRendered = 0;
+
+      // Handle interactions from browser
+      server.onInteraction = (msg: ClientMessage) => {
+        if (msg.type === "interaction") {
+          const actionText =
+            msg.action === "select"
+              ? `Selected: ${msg.value}`
+              : msg.action === "toggle"
+                ? `Toggled: ${msg.blockId}`
+                : msg.action === "submit"
+                  ? `Submitted: ${JSON.stringify(msg.values)}`
+                  : `Interacted: ${msg.blockId}`;
+
+          pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
+        } else if (msg.type === "text") {
+          const content: Array<{ type: string; text?: string; source?: { type: string; mediaType: string; data: string } }> = [];
+          if (msg.text) {
+            content.push({ type: "text", text: msg.text });
+          }
+          if (msg.images?.length) {
+            for (const img of msg.images) {
+              content.push({ type: "image", source: { type: "base64", mediaType: img.mediaType, data: img.data } });
+            }
+          }
+          if (content.length > 0) {
+            pi.sendUserMessage(content);
+          }
+        }
+      };
+
+      // Activate the visual tool
+      pi.setActiveTools([...pi.getActiveTools(), "visual"]);
+      setStatus(true);
+
+      // Open browser
+      const openCmd =
+        process.platform === "win32" ? "start"
+        : process.platform === "darwin" ? "open"
+        : "xdg-open";
+      pi.exec(openCmd, [server.url]);
+
+      return true;
+    } catch (err) {
+      pi.setStatus("pi-visual", undefined);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[pi-visual] Failed to start: ${message}`);
+      return false;
+    }
+  }
+
+  function stopVisual() {
+    if (!state.active) return;
+
+    state.server?.close();
+    state.server = null;
+    state.active = false;
+
+    pi.setActiveTools(pi.getActiveTools().filter((t) => t !== "visual"));
+    setStatus(false);
+  }
+
+  // Register /visual command
+  pi.registerCommand("visual", {
+    description: "Toggle visual mode on/off. Usage: /visual [on|off|status]",
+    handler: async (args, ctx) => {
+      const subCommand = args.trim().toLowerCase();
+
+      if (subCommand === "on") {
+        if (state.active) {
+          ctx.ui.notify("Visual mode is already active", "info");
+          return;
+        }
+        const ok = await startVisual(ctx);
+        if (ok) {
+          ctx.ui.notify(`Visual mode active — ${state.server?.url}`, "success");
+        } else {
+          ctx.ui.notify("Failed to start visual mode", "error");
+        }
+      } else if (subCommand === "off") {
+        if (!state.active) {
+          ctx.ui.notify("Visual mode is not active", "info");
+          return;
+        }
+        stopVisual();
+        ctx.ui.notify("Visual mode deactivated", "info");
+      } else if (subCommand === "status") {
+        if (!state.active) {
+          ctx.ui.notify("Visual mode: inactive", "info");
+        } else {
+          ctx.ui.notify(
+            `Visual mode: active\nURL: ${state.server?.url}\nBlocks rendered: ${state.blocksRendered}`,
+            "info",
+          );
+        }
+      } else {
+        // Toggle
+        if (state.active) {
+          stopVisual();
+          ctx.ui.notify("Visual mode deactivated", "info");
+        } else {
+          const ok = await startVisual(ctx);
+          if (ok) {
+            ctx.ui.notify(`Visual mode active — ${state.server?.url}`, "success");
+          } else {
+            ctx.ui.notify("Failed to start visual mode", "error");
+          }
+        }
+      }
+    },
+  });
+
+  // Register the visual tool
+  const visualTool = createVisualTool(() => state);
+  pi.registerTool(visualTool);
+
+  // Cleanup on session shutdown
+  pi.on("session_shutdown", async () => {
+    stopVisual();
+  });
+}
