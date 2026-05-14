@@ -1,5 +1,5 @@
 // src/index.ts
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { createVisualServer, type VisualServer } from "./server.js";
 import type { ClientMessage } from "./protocol.js";
 import { createVisualTool } from "./tool.js";
@@ -17,24 +17,22 @@ export default function (pi: ExtensionAPI) {
     blocksRendered: 0,
   };
 
-  function setStatus(connected: boolean) {
+  function updateStatus(ctx: ExtensionContext, connected: boolean) {
     if (!state.active) {
-      pi.setStatus("pi-visual", undefined);
+      ctx.ui.setStatus("pi-visual", undefined);
       return;
     }
-    pi.setStatus(
+    ctx.ui.setStatus(
       "pi-visual",
       connected ? "visual: connected ●" : "visual: disconnected ○",
     );
   }
 
-  async function startVisual(ctx: { cwd: string; hasUI: boolean }): Promise<boolean> {
+  async function startVisual(ctx: ExtensionContext): Promise<boolean> {
     if (state.active) return true;
 
     // Resolve spa directory relative to this file
     const thisFile = new URL(import.meta.url);
-    // import.meta.url for jiti is the .ts file path (may be file:///C:/... or file:///...)
-    const thisDir = decodeURIComponent(new URL(".", thisFile).pathname);
     const spaDir = new URL("../spa", thisFile).pathname;
     // On Windows, remove leading slash from file:///C:/...
     const normalizedSpaDir = process.platform === "win32" && spaDir.startsWith("/") ? spaDir.slice(1) : spaDir;
@@ -76,7 +74,7 @@ export default function (pi: ExtensionAPI) {
 
       // Activate the visual tool
       pi.setActiveTools([...pi.getActiveTools(), "visual"]);
-      setStatus(true);
+      updateStatus(ctx, true);
 
       // Open browser
       const openCmd =
@@ -87,14 +85,13 @@ export default function (pi: ExtensionAPI) {
 
       return true;
     } catch (err) {
-      pi.setStatus("pi-visual", undefined);
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[pi-visual] Failed to start: ${message}`);
       return false;
     }
   }
 
-  function stopVisual() {
+  function stopVisual(ctx?: ExtensionContext) {
     if (!state.active) return;
 
     state.server?.close();
@@ -102,7 +99,7 @@ export default function (pi: ExtensionAPI) {
     state.active = false;
 
     pi.setActiveTools(pi.getActiveTools().filter((t) => t !== "visual"));
-    setStatus(false);
+    if (ctx) updateStatus(ctx, false);
   }
 
   // Register /visual command
@@ -127,7 +124,7 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify("Visual mode is not active", "info");
           return;
         }
-        stopVisual();
+        stopVisual(ctx);
         ctx.ui.notify("Visual mode deactivated", "info");
       } else if (subCommand === "status") {
         if (!state.active) {
@@ -141,7 +138,7 @@ export default function (pi: ExtensionAPI) {
       } else {
         // Toggle
         if (state.active) {
-          stopVisual();
+          stopVisual(ctx);
           ctx.ui.notify("Visual mode deactivated", "info");
         } else {
           const ok = await startVisual(ctx);
@@ -159,8 +156,12 @@ export default function (pi: ExtensionAPI) {
   const visualTool = createVisualTool(() => state);
   pi.registerTool(visualTool);
 
-  // Cleanup on session shutdown
+  // Cleanup on session shutdown (no ctx available)
   pi.on("session_shutdown", async () => {
-    stopVisual();
+    if (state.active) {
+      state.server?.close();
+      state.server = null;
+      state.active = false;
+    }
   });
 }
