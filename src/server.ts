@@ -85,12 +85,12 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
           const msg: ClientMessage = JSON.parse(raw.toString());
           console.log("[pi-visual] WS received:", JSON.stringify(msg).substring(0, 200));
           if (msg.type === "interaction" || msg.type === "text") {
-            if (!serverObj.onInteraction) {
+            if (!instance?.onInteraction) {
               console.log("[pi-visual] Queuing message, handler not ready yet");
               pendingMessages.push(msg);
               return;
             }
-            serverObj.onInteraction(msg);
+            instance.onInteraction(msg);
           }
         } catch (err) {
           console.error("[pi-visual] WS message error:", err);
@@ -115,11 +115,13 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
 
     let attempts = 0;
     const maxAttempts = 5;
+    let instance: VisualServer | null = null;
 
     function handleListen() {
       const addr = httpServer.address();
       if (addr && typeof addr === "object") {
-        resolve(serverObj(addr.port));
+        instance = serverObj(addr.port);
+        resolve(instance);
       } else {
         reject(new Error("Failed to get server port"));
       }
@@ -228,7 +230,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
           const msg = pendingMessages.shift()!;
           console.log("[pi-visual] Flushing queued message");
           try {
-            serverObj.onInteraction?.(msg);
+            instance?.onInteraction?.(msg);
           } catch (err) {
             console.error("[pi-visual] Error flushing message:", err);
           }
