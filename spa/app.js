@@ -438,20 +438,18 @@ function handleMessage(msg) {
     case "history":
       if (msg.items?.length) {
         hideEmpty();
-        (async () => {
-          for (const item of msg.items) {
-            if (item.type === "user_chat") appendUserMessage(item.id, item.text, item.images);
-            else if (item.type === "assistant_chat") appendAssistantMessage(item.id, item.text);
-            else if (item.type === "block") await renderBlock(item.block);
-            else if (item.type === "thinking") showThinking(item.id);
-            else if (item.type === "tool_call") {
-              appendToolCallStart(item.id, item.toolName, item.input);
-              if (item.result !== undefined) updateToolCallEnd(item.id, item.result, item.isError);
-            }
-            else if (item.type === "terminal_chat") appendTerminalMessage(item.id, item.text, item.images);
+        for (const item of msg.items) {
+          if (item.type === "user_chat") appendUserMessage(item.id, item.text, item.images);
+          else if (item.type === "assistant_chat") appendAssistantMessage(item.id, item.text);
+          else if (item.type === "block") renderBlock(item.block);
+          else if (item.type === "thinking") showThinking(item.id);
+          else if (item.type === "tool_call") {
+            appendToolCallStart(item.id, item.toolName, item.input);
+            if (item.result !== undefined) updateToolCallEnd(item.id, item.result, item.isError);
           }
-          scrollToBottom();
-        })();
+          else if (item.type === "terminal_chat") appendTerminalMessage(item.id, item.text, item.images);
+        }
+        scrollToBottom();
       }
       break;
     case "user_chat":
@@ -485,7 +483,7 @@ function handleMessage(msg) {
     case "blocks":
       hideEmpty();
       removeThinking();
-      (async () => { for (const b of msg.blocks) await renderBlock(b); maybeScrollToBottom(); })();
+      for (const b of msg.blocks) renderBlock(b); maybeScrollToBottom();
       break;
     case "update": updateBlock(msg.blockId, msg.patch); break;
     case "clear":
@@ -507,7 +505,7 @@ function updateBlock(id, patch) {
 // ─── Renderer dispatcher ───
 const R = {};
 
-async function renderBlock(block) {
+function renderBlock(block) {
   const wrap = document.createElement("div");
   wrap.id = block.id;
   wrap.className = "block-chat-item";
@@ -515,7 +513,7 @@ async function renderBlock(block) {
   const cls = block.style || "";
   try {
     const r = R[block.type];
-    if (r) { const c = await r(block.content, block.id, cls); if (c) inner.appendChild(c); }
+    if (r) { const c = r(block.content, block.id, cls); if (c) inner.appendChild(c); }
     else {
       inner.innerHTML = `<div class="block-card ${cls}"><p class="text-zinc-500 text-xs mb-2">Unknown block type: ${escapeHtml(block.type)}</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
     }
@@ -536,17 +534,18 @@ R.explanation = (c, _id, cls) => {
 };
 
 // code
-R.code = async (c, _id, cls) => {
+R.code = (c, _id, cls) => {
   const d = document.createElement("div"); d.className = `block-card ${cls}`;
   if (c.language) d.innerHTML = `<div class="text-xs text-zinc-500 mb-2">${escapeHtml(c.language)}</div>`;
   const pre = document.createElement("pre"); pre.className = "text-sm overflow-x-auto rounded-lg bg-zinc-950 p-3";
-  try {
-    if (window.shiki) {
-      const h = await shiki.createHighlighter({ themes: ["github-dark"], langs: c.language ? [c.language] : ["text"] });
-      pre.innerHTML = h.codeToHtml(c.code || "", { lang: c.language || "text", theme: "github-dark" });
-    } else pre.textContent = c.code || "";
-  } catch { pre.textContent = c.code || ""; }
-  d.appendChild(pre); return d;
+  pre.textContent = c.code || "";
+  d.appendChild(pre);
+  if (window.shiki) {
+    shiki.createHighlighter({ themes: ["github-dark"], langs: c.language ? [c.language] : ["text"] })
+      .then(h => { pre.innerHTML = h.codeToHtml(c.code || "", { lang: c.language || "text", theme: "github-dark" }); })
+      .catch(() => {});
+  }
+  return d;
 };
 
 // markdown
