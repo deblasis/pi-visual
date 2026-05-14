@@ -60,6 +60,34 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Terminal message */
+.msg-terminal {
+  display: flex;
+  justify-content: flex-start;
+}
+.msg-terminal .msg-bubble {
+  background: #1c1917;
+  border: 1px solid #44403c;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  padding: 0.625rem 1rem;
+  max-width: 80%;
+  word-wrap: break-word;
+  position: relative;
+}
+.msg-terminal .msg-bubble p { margin: 0; }
+.msg-terminal-label {
+  display: inline-block;
+  font-size: 0.65rem;
+  background: #78716c;
+  color: #0c0a09;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.375rem;
+}
 .thinking-dots span {
   display: inline-block;
   width: 6px; height: 6px;
@@ -276,3 +304,10 @@
 .tool-call-card.tool-running {
   opacity: 1;
 }
+
+/* Shell highlighting */
+.hl-cmd { color: #4ade80; font-weight: 600; }
+.hl-flag { color: #60a5fa; }
+.hl-string { color: #fbbf24; }
+.hl-op { color: #f87171; }
+.hl-path { color: #38bdf8; text-decoration: underline; text-decoration-color: rgba(56, 189, 248, 0.3); }

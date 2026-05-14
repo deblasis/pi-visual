@@ -206,6 +206,17 @@ export default function (pi: ExtensionAPI) {
   const visualTool = createVisualTool(() => state);
   pi.registerTool(visualTool);
 
+  // Forward terminal input to web UI
+  pi.on("input", async (event) => {
+    if (!state.active || !state.server) return;
+    // Only forward input typed in the terminal (not from our own extension)
+    if (event.source !== "interactive") return;
+    const images = event.images?.length
+      ? event.images.map(img => ({ mimeType: img.mimeType, data: img.data }))
+      : undefined;
+    state.server.pushTerminalChat(event.text, images);
+  });
+
   // Capture assistant text responses and forward to browser
   pi.on("turn_start", async () => {
     if (!state.active || !state.server) return;

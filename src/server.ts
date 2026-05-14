@@ -29,6 +29,7 @@ export interface VisualServer {
   pushThinkingEnd: () => void;
   pushWorkingStart: () => void;
   pushWorkingEnd: () => void;
+  pushTerminalChat: (text: string, images?: Array<{ mimeType: string; data: string }>) => void;
   pushToolCallStart: (id: string, toolName: string, input: Record<string, unknown>) => void;
   pushToolCallEnd: (id: string, result?: string, isError?: boolean) => void;
   onInteraction: ((msg: ClientMessage) => void) | null;
@@ -194,6 +195,12 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         if (!workingId) return;
         send({ type: "working_end" });
         workingId = null;
+      },
+      pushTerminalChat(text: string, images?: Array<{ mimeType: string; data: string }>) {
+        const id = `terminal-${Date.now()}`;
+        const item: ChatItem = { type: "terminal_chat", id, text, ...(images?.length ? { images } : {}) };
+        history.push(item);
+        send({ type: "terminal_chat", id, text, ...(images?.length ? { images } : {}) });
       },
       pushToolCallStart(id: string, toolName: string, input: Record<string, unknown>) {
         // End working indicator if active

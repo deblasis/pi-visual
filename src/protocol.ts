@@ -65,7 +65,14 @@ export interface ToolCallChatItem {
   isError?: boolean;
 }
 
-export type ChatItem = UserChatItem | AssistantChatItem | ThinkingItem | BlockChatItem | ToolCallChatItem;
+export interface TerminalChatItem {
+  type: "terminal_chat";
+  id: string;
+  text: string;
+  images?: Array<{ mimeType: string; data: string }>;
+}
+
+export type ChatItem = UserChatItem | AssistantChatItem | ThinkingItem | BlockChatItem | ToolCallChatItem | TerminalChatItem;
 
 // ─── Server → Browser messages ───
 
@@ -128,6 +135,13 @@ export interface ToolCallEndMessage {
   isError?: boolean;
 }
 
+export interface TerminalChatMessage {
+  type: "terminal_chat";
+  id: string;
+  text: string;
+  images?: Array<{ mimeType: string; data: string }>;
+}
+
 export interface WorkingStartMessage {
   type: "working_start";
   id: string;
@@ -148,6 +162,7 @@ export type ServerMessage =
   | ToolCallEndMessage
   | WorkingStartMessage
   | WorkingEndMessage
+  | TerminalChatMessage
   | UpdateMessage
   | ClearMessage;
 

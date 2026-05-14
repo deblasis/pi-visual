@@ -113,6 +113,39 @@ function appendUserMessage(id, text, images) {
   maybeScrollToBottom();
 }
 
+function appendTerminalMessage(id, text, images) {
+  hideEmpty();
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-terminal";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  const label = document.createElement("span");
+  label.className = "msg-terminal-label";
+  label.textContent = "terminal";
+  bubble.appendChild(label);
+  if (images?.length) {
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "msg-images";
+    for (const img of images) {
+      const imgEl = document.createElement("img");
+      imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+      imgEl.alt = "Image";
+      imgDiv.appendChild(imgEl);
+    }
+    bubble.appendChild(imgDiv);
+  }
+  if (text) {
+    const p = document.createElement("p");
+    p.className = "text-sm text-zinc-200";
+    p.textContent = text;
+    bubble.appendChild(p);
+  }
+  wrap.appendChild(bubble);
+  chatContainer.appendChild(wrap);
+  maybeScrollToBottom();
+}
+
 function appendAssistantMessage(id, text, images) {
   hideEmpty();
   removeThinking();
@@ -233,6 +266,26 @@ function formatToolInput(name, input) {
   }
 }
 
+function highlightShell(code) {
+  let html = escapeHtml(code);
+  // Highlight strings in quotes
+  html = html.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;|"[^"]*"|'[^']*')/g, '<span class="hl-string">$1</span>');
+  // Highlight flags
+  html = html.replace(/(\s)(-{1,2}[a-zA-Z][\w-]*)/g, '$1<span class="hl-flag">$2</span>');
+  // Highlight command (first word after $)
+  html = html.replace(/^\$\s(\S+)/, '$ <span class="hl-cmd">$1</span>');
+  // Highlight pipes and operators
+  html = html.replace(/(\|{1,2}|&amp;&amp;|;)/g, '<span class="hl-op">$1</span>');
+  return html;
+}
+
+function highlightPath(text) {
+  let html = escapeHtml(text);
+  // Highlight file paths (starting with /, ./, ~/, or drive letter)
+  html = html.replace(/([~./][\w./_-]+|[A-Za-z]:[\\/][\w\\./_-]+)/g, '<span class="hl-path">$1</span>');
+  return html;
+}
+
 function appendToolCallStart(id, toolName, input) {
   hideEmpty();
   removeWorking();
@@ -256,12 +309,18 @@ function appendToolCallStart(id, toolName, input) {
   `;
   header.onclick = () => toggleToolCall(wrap);
 
+  let inputHtml;
+  const rawInput = formatToolInput(toolName, input);
+  if (toolName === "bash") inputHtml = highlightShell(rawInput);
+  else if (["read", "edit", "write", "find", "ls"].includes(toolName)) inputHtml = highlightPath(rawInput);
+  else inputHtml = escapeHtml(rawInput);
+
   const body = document.createElement("div");
   body.className = "tool-call-body";
   body.innerHTML = `
     <div class="tool-section">
       <div class="tool-label">Input</div>
-      <pre class="tool-pre">${escapeHtml(formatToolInput(toolName, input))}</pre>
+      <pre class="tool-pre">${inputHtml}</pre>
     </div>
     <div class="tool-section tool-result-section"></div>
   `;
@@ -353,6 +412,7 @@ function handleMessage(msg) {
               appendToolCallStart(item.id, item.toolName, item.input);
               if (item.result !== undefined) updateToolCallEnd(item.id, item.result, item.isError);
             }
+            else if (item.type === "terminal_chat") appendTerminalMessage(item.id, item.text, item.images);
           }
           scrollToBottom();
         })();
@@ -360,6 +420,9 @@ function handleMessage(msg) {
       break;
     case "user_chat":
       appendUserMessage(msg.id, msg.text, msg.images);
+      break;
+    case "terminal_chat":
+      appendTerminalMessage(msg.id, msg.text, msg.images);
       break;
     case "assistant_chat":
       appendAssistantMessage(msg.id, msg.text);
