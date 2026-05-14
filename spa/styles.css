@@ -348,3 +348,8 @@
 .hl-string { color: #fbbf24; }
 .hl-op { color: #f87171; }
 .hl-path { color: #38bdf8; text-decoration: underline; text-decoration-color: rgba(56, 189, 248, 0.3); }
+
+/* Virtualization tombstones (invisible by default, visible for debugging) */
+[data-virtual-tombstone] {
+  /* Uncomment for debugging: outline: 1px dashed rgba(255,255,0,0.2); */
+}
