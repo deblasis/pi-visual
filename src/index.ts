@@ -167,13 +167,28 @@ export default function (pi: ExtensionAPI) {
 
       // Activate the visual tool
       pi.setActiveTools([...pi.getActiveTools(), "visual"]);
-      updateStatus(ctx, true);
 
       // Try portless URL, fall back to localhost
       const folderName = ctx.cwd.split(/[/\\]/).pop() || "unknown";
       const sessionId = ctx.sessionManager.getSessionId();
-      state.portlessInfo = await getPortlessInfo(server.port, folderName, sessionId);
-      const browserUrl = state.portlessInfo?.url || server.url;
+      const portlessInfo = await getPortlessInfo(server.port, folderName, sessionId);
+
+      let usePortless = false;
+      if (portlessInfo) {
+        // Ask user if they want to use portless
+        if (ctx.hasUI) {
+          usePortless = (await ctx.ui.confirm(
+            "Portless detected",
+            `Use portless URL? ${portlessInfo.url} (instead of ${server.url})`,
+          )) ?? false;
+        }
+        if (usePortless) {
+          state.portlessInfo = portlessInfo;
+        }
+      }
+
+      const browserUrl = usePortless ? portlessInfo!.url : server.url;
+      updateStatus(ctx, true);
       debug.log("Opening browser to:", browserUrl);
 
       const openCmd =
