@@ -363,9 +363,10 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // Register the visual tool
+  // Register the visual tool (but deactivate immediately — pi auto-activates all extension tools)
   const visualTool = createVisualTool(() => state);
   pi.registerTool(visualTool);
+  pi.setActiveTools(pi.getActiveTools().filter((t) => t !== "visual"));
 
   // Forward terminal input to web UI
   pi.on("input", async (event) => {
