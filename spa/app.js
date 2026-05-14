@@ -23,6 +23,138 @@ let currentThinkingEl = null;
 let currentWorkingEl = null;
 let toolsHidden = false;
 
+// ─── Virtualization ───
+const virtualItems = [];
+const itemByElement = new WeakMap();
+const EXEMPT_KINDS = new Set(["thinking", "working"]);
+const SWAP_OUT_DELAY_MS = 2000;
+const BUFFER_PX = 2000;
+let virtualIO = null;
+let virtualRO = null;
+const renderers = {};
+
+function initVirtualization() {
+  virtualIO = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const item = itemByElement.get(entry.target);
+      if (!item) continue;
+      if (entry.isIntersecting) {
+        if (!item.rendered) swapIn(item);
+      } else {
+        swapOut(item);
+      }
+    }
+  }, { root: chatContainer, rootMargin: `${BUFFER_PX}px 0px ${BUFFER_PX}px 0px` });
+
+  virtualRO = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const item = itemByElement.get(entry.target);
+      if (item?.rendered) {
+        const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+        if (h > 0) item.height = h;
+      }
+    }
+  });
+}
+
+function registerVirtualItem(id, kind, data) {
+  hideEmpty();
+  const renderer = renderers[kind];
+  if (!renderer) {
+    console.warn("No renderer for kind:", kind);
+    return null;
+  }
+  const el = renderer(data, id);
+  chatContainer.appendChild(el);
+  const item = {
+    id, kind, data,
+    height: el.getBoundingClientRect().height || 0,
+    el,
+    rendered: true,
+    renderedAt: Date.now(),
+  };
+  virtualItems.push(item);
+  itemByElement.set(el, item);
+  virtualIO.observe(el);
+  if (!EXEMPT_KINDS.has(kind)) virtualRO.observe(el);
+  maybeScrollToBottom();
+  return item;
+}
+
+function swapOut(item) {
+  if (!item.rendered) return;
+  if (EXEMPT_KINDS.has(item.kind)) return;
+  if (Date.now() - item.renderedAt < SWAP_OUT_DELAY_MS) return;
+  const h = item.el.getBoundingClientRect().height;
+  if (h > 0) item.height = h;
+  const tombstone = document.createElement("div");
+  tombstone.style.height = item.height + "px";
+  tombstone.dataset.virtualTombstone = "";
+  virtualIO.unobserve(item.el);
+  virtualRO.unobserve(item.el);
+  itemByElement.delete(item.el);
+  item.el.replaceWith(tombstone);
+  item.el = tombstone;
+  item.rendered = false;
+  itemByElement.set(tombstone, item);
+  virtualIO.observe(tombstone);
+}
+
+function swapIn(item) {
+  if (item.rendered) return;
+  const oldHeight = item.height;
+  const renderer = renderers[item.kind];
+  if (!renderer) return;
+  const el = renderer(item.data, item.id);
+  const tombstone = item.el;
+  virtualIO.unobserve(tombstone);
+  itemByElement.delete(tombstone);
+  tombstone.replaceWith(el);
+  item.el = el;
+  item.rendered = true;
+  item.renderedAt = Date.now();
+  itemByElement.set(el, item);
+  virtualIO.observe(el);
+  if (!EXEMPT_KINDS.has(item.kind)) virtualRO.observe(el);
+  const newHeight = el.getBoundingClientRect().height || oldHeight;
+  item.height = newHeight;
+  // Scroll anchoring: compensate height drift for items above viewport
+  if (oldHeight > 0 && Math.abs(newHeight - oldHeight) > 1) {
+    const elTop = el.offsetTop;
+    if (elTop < chatContainer.scrollTop) {
+      chatContainer.scrollTop += newHeight - oldHeight;
+    }
+  }
+}
+
+function findVirtualItem(id) {
+  return virtualItems.find(i => i.id === id);
+}
+
+function destroyVirtualItem(id) {
+  const idx = virtualItems.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  const item = virtualItems[idx];
+  virtualIO?.unobserve(item.el);
+  virtualRO?.unobserve(item.el);
+  itemByElement.delete(item.el);
+  item.el.remove();
+  virtualItems.splice(idx, 1);
+}
+
+function updateVirtualItemData(id, dataUpdate) {
+  const item = findVirtualItem(id);
+  if (!item) return null;
+  Object.assign(item.data, dataUpdate);
+  return item;
+}
+
+function cleanupVirtualization() {
+  if (virtualIO) { virtualIO.disconnect(); virtualIO = null; }
+  if (virtualRO) { virtualRO.disconnect(); virtualRO = null; }
+  virtualItems.length = 0;
+}
+
 // ─── Smart scroll ───
 function isNearBottom(threshold = 120) {
   return chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < threshold;
@@ -961,4 +1093,5 @@ if (toggleToolsBtn) {
 }
 
 // ─── Start ───
+initVirtualization();
 connect();
