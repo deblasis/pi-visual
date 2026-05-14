@@ -248,99 +248,6 @@ function renderMarkdown(text) {
   }
 }
 
-function appendUserMessage(id, text, images) {
-  hideEmpty();
-  const wrap = document.createElement("div");
-  wrap.id = id;
-  wrap.className = "msg-user";
-  const bubble = document.createElement("div");
-  bubble.className = "msg-bubble";
-  if (images?.length) {
-    const imgDiv = document.createElement("div");
-    imgDiv.className = "msg-images";
-    for (const img of images) {
-      const imgEl = document.createElement("img");
-      imgEl.src = `data:${img.mediaType};base64,${img.data}`;
-      imgEl.alt = "Uploaded image";
-      imgDiv.appendChild(imgEl);
-    }
-    bubble.appendChild(imgDiv);
-  }
-  if (text) {
-    const p = document.createElement("p");
-    p.className = "text-sm text-white";
-    p.textContent = text;
-    bubble.appendChild(p);
-  }
-  wrap.appendChild(bubble);
-  chatContainer.appendChild(wrap);
-  maybeScrollToBottom();
-}
-
-function appendTerminalMessage(id, text, images) {
-  hideEmpty();
-  const wrap = document.createElement("div");
-  wrap.id = id;
-  wrap.className = "msg-terminal";
-  const bubble = document.createElement("div");
-  bubble.className = "msg-bubble";
-  const label = document.createElement("span");
-  label.className = "msg-terminal-label";
-  label.textContent = "terminal";
-  bubble.appendChild(label);
-  if (images?.length) {
-    const imgDiv = document.createElement("div");
-    imgDiv.className = "msg-images";
-    for (const img of images) {
-      const imgEl = document.createElement("img");
-      imgEl.src = `data:${img.mimeType};base64,${img.data}`;
-      imgEl.alt = "Image";
-      imgDiv.appendChild(imgEl);
-    }
-    bubble.appendChild(imgDiv);
-  }
-  if (text) {
-    const p = document.createElement("p");
-    p.className = "text-sm text-zinc-200";
-    p.textContent = text;
-    bubble.appendChild(p);
-  }
-  wrap.appendChild(bubble);
-  chatContainer.appendChild(wrap);
-  maybeScrollToBottom();
-}
-
-function appendAssistantMessage(id, text, images) {
-  hideEmpty();
-  removeThinking();
-  removeWorking();
-  const wrap = document.createElement("div");
-  wrap.id = id;
-  wrap.className = "msg-assistant";
-  const bubble = document.createElement("div");
-  bubble.className = "msg-bubble text-sm text-zinc-200";
-  if (images?.length) {
-    const imgDiv = document.createElement("div");
-    imgDiv.className = "msg-images";
-    for (const img of images) {
-      const imgEl = document.createElement("img");
-      imgEl.src = `data:${img.mimeType};base64,${img.data}`;
-      imgEl.alt = "Image";
-      imgDiv.appendChild(imgEl);
-    }
-    bubble.appendChild(imgDiv);
-  }
-  if (text) {
-    const textDiv = document.createElement("div");
-    textDiv.innerHTML = renderMarkdown(text);
-    textDiv.querySelectorAll("script").forEach(s => s.remove());
-    bubble.appendChild(textDiv);
-  }
-  wrap.appendChild(bubble);
-  chatContainer.appendChild(wrap);
-  maybeScrollToBottom();
-}
-
 function showThinking(id) {
   hideEmpty();
   if (currentThinkingEl) return;
@@ -354,12 +261,21 @@ function showThinking(id) {
   wrap.appendChild(bubble);
   chatContainer.appendChild(wrap);
   currentThinkingEl = wrap;
+  // Register as exempt item — tracked but never swapped out
+  const item = {
+    id, kind: "thinking", data: {},
+    height: wrap.getBoundingClientRect().height || 0,
+    el: wrap, rendered: true, renderedAt: Date.now(),
+  };
+  virtualItems.push(item);
+  itemByElement.set(wrap, item);
+  virtualIO.observe(wrap);
   maybeScrollToBottom();
 }
 
 function removeThinking() {
   if (currentThinkingEl) {
-    currentThinkingEl.remove();
+    destroyVirtualItem(currentThinkingEl.id);
     currentThinkingEl = null;
   }
 }
@@ -376,12 +292,20 @@ function showWorking(id) {
   wrap.appendChild(bubble);
   chatContainer.appendChild(wrap);
   currentWorkingEl = wrap;
+  const item = {
+    id, kind: "working", data: {},
+    height: wrap.getBoundingClientRect().height || 0,
+    el: wrap, rendered: true, renderedAt: Date.now(),
+  };
+  virtualItems.push(item);
+  itemByElement.set(wrap, item);
+  virtualIO.observe(wrap);
   maybeScrollToBottom();
 }
 
 function removeWorking() {
   if (currentWorkingEl) {
-    currentWorkingEl.remove();
+    destroyVirtualItem(currentWorkingEl.id);
     currentWorkingEl = null;
   }
 }
@@ -448,56 +372,6 @@ function highlightPath(text) {
   // Highlight file paths (starting with /, ./, ~/, or drive letter)
   html = html.replace(/([~./][\w./_-]+|[A-Za-z]:[\\/][\w\\./_-]+)/g, '<span class="hl-path">$1</span>');
   return html;
-}
-
-function appendToolCallStart(id, toolName, input) {
-  hideEmpty();
-  removeWorking();
-  const color = getToolColor(toolName);
-  const icon = getToolIcon(toolName);
-  const brief = getToolBrief(toolName, toolName === "visual" ? input : input);
-
-  const wrap = document.createElement("div");
-  wrap.id = id;
-  wrap.className = "tool-call-card tool-running";
-  wrap.style.borderLeftColor = color;
-
-  const header = document.createElement("div");
-  header.className = "tool-call-header";
-  header.innerHTML = `
-    <span class="tool-icon">${icon}</span>
-    <span class="tool-name" style="color:${color}">${escapeHtml(toolName)}</span>
-    <span class="tool-brief">${escapeHtml(brief)}</span>
-    <span class="tool-status running">●</span>
-    <span class="tool-toggle">▼</span>
-  `;
-  header.onclick = () => toggleToolCall(wrap);
-
-  let inputHtml;
-  const rawInput = formatToolInput(toolName, input);
-  if (toolName === "bash") inputHtml = highlightShell(rawInput);
-  else if (["read", "edit", "write", "find", "ls"].includes(toolName)) inputHtml = highlightPath(rawInput);
-  else inputHtml = escapeHtml(rawInput);
-
-  const body = document.createElement("div");
-  body.className = "tool-call-body";
-  body.innerHTML = `
-    <div class="tool-section">
-      <div class="tool-label">Input</div>
-      <pre class="tool-pre">${inputHtml}</pre>
-    </div>
-    <div class="tool-section tool-result-section"></div>
-  `;
-
-  wrap.appendChild(header);
-  wrap.appendChild(body);
-  if (toolsHidden) {
-    body.classList.add("collapsed");
-    const t = wrap.querySelector(".tool-toggle");
-    if (t) t.textContent = "▶";
-  }
-  chatContainer.appendChild(wrap);
-  maybeScrollToBottom();
 }
 
 function updateToolCallEnd(id, result, isError) {
@@ -569,31 +443,33 @@ function handleMessage(msg) {
     case "connected": break;
     case "history":
       if (msg.items?.length) {
+        cleanupVirtualization();
+        initVirtualization();
         hideEmpty();
         for (const item of msg.items) {
-          if (item.type === "user_chat") appendUserMessage(item.id, item.text, item.images);
-          else if (item.type === "assistant_chat") appendAssistantMessage(item.id, item.text);
-          else if (item.type === "block") renderBlock(item.block);
+          if (item.type === "user_chat") registerVirtualItem(item.id, "user_chat", { text: item.text, images: item.images });
+          else if (item.type === "assistant_chat") registerVirtualItem(item.id, "assistant_chat", { text: item.text, images: item.images });
+          else if (item.type === "terminal_chat") registerVirtualItem(item.id, "terminal_chat", { text: item.text, images: item.images });
+          else if (item.type === "block") registerVirtualItem(item.id, "block", { block: item.block });
           else if (item.type === "thinking") showThinking(item.id);
-          else if (item.type === "tool_call") {
-            appendToolCallStart(item.id, item.toolName, item.input);
-            if (item.result !== undefined) updateToolCallEnd(item.id, item.result, item.isError);
-          }
-          else if (item.type === "terminal_chat") appendTerminalMessage(item.id, item.text, item.images);
+          else if (item.type === "tool_call") registerVirtualItem(item.id, "tool_call", { toolName: item.toolName, input: item.input, result: item.result, isError: item.isError });
         }
         scrollToBottom();
       }
       break;
     case "user_chat":
-      appendUserMessage(msg.id, msg.text, msg.images);
+      registerVirtualItem(msg.id, "user_chat", { text: msg.text, images: msg.images });
       break;
     case "terminal_chat":
-      appendTerminalMessage(msg.id, msg.text, msg.images);
+      registerVirtualItem(msg.id, "terminal_chat", { text: msg.text, images: msg.images });
       break;
     case "assistant_chat":
-      appendAssistantMessage(msg.id, msg.text);
+      removeThinking();
+      removeWorking();
+      registerVirtualItem(msg.id, "assistant_chat", { text: msg.text, images: msg.images });
       break;
     case "thinking_start":
+      removeWorking();
       showThinking(msg.id);
       break;
     case "thinking_end":
@@ -606,19 +482,28 @@ function handleMessage(msg) {
       removeWorking();
       break;
     case "tool_call_start":
-      appendToolCallStart(msg.id, msg.toolName, msg.input);
+      removeWorking();
+      registerVirtualItem(msg.id, "tool_call", { toolName: msg.toolName, input: msg.input });
       break;
-    case "tool_call_end":
-      updateToolCallEnd(msg.id, msg.result, msg.isError);
+    case "tool_call_end": {
+      const item = findVirtualItem(msg.id);
+      if (item) {
+        updateVirtualItemData(msg.id, { result: msg.result, isError: msg.isError });
+        if (item.rendered) {
+          updateToolCallEnd(msg.id, msg.result, msg.isError);
+        }
+      }
       maybeScrollToBottom();
       break;
+    }
     case "blocks":
-      hideEmpty();
       removeThinking();
-      for (const b of msg.blocks) renderBlock(b); maybeScrollToBottom();
+      for (const b of msg.blocks) registerVirtualItem(b.id, "block", { block: b });
       break;
     case "update": updateBlock(msg.blockId, msg.patch); break;
     case "clear":
+      cleanupVirtualization();
+      initVirtualization();
       chatContainer.innerHTML = "";
       chatContainer.appendChild(emptyState);
       emptyState.classList.remove("hidden");
@@ -636,25 +521,6 @@ function updateBlock(id, patch) {
 
 // ─── Renderer dispatcher ───
 const R = {};
-
-function renderBlock(block) {
-  const wrap = document.createElement("div");
-  wrap.id = block.id;
-  wrap.className = "block-chat-item";
-  const inner = document.createElement("div");
-  const cls = block.style || "";
-  try {
-    const r = R[block.type];
-    if (r) { const c = r(block.content, block.id, cls); if (c) inner.appendChild(c); }
-    else {
-      inner.innerHTML = `<div class="block-card ${cls}"><p class="text-zinc-500 text-xs mb-2">Unknown block type: ${escapeHtml(block.type)}</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
-    }
-  } catch {
-    inner.innerHTML = `<div class="block-card border-red-900 ${cls}"><p class="text-red-400 text-xs mb-2">⚠ Rendering error</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
-  }
-  wrap.appendChild(inner);
-  chatContainer.appendChild(wrap);
-}
 
 // ─── RENDERERS ───
 
