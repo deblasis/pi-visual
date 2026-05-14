@@ -240,6 +240,23 @@
 /* Textarea */
 #text-input { max-height: 120px; min-height: 38px; }
 
+/* Status bar */
+#status-bar { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+#status-bar .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+#status-bar .status-dot.connected { background: #4ade80; }
+#status-bar .status-dot.disconnected { background: #71717a; }
+
+/* Autocomplete */
+#autocomplete-dropdown { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ac-item {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0.75rem; cursor: pointer;
+  transition: background 0.1s;
+}
+.ac-item:hover, .ac-item.active { background: rgba(59, 130, 246, 0.15); }
+.ac-item .ac-name { color: #60a5fa; font-weight: 500; white-space: nowrap; }
+.ac-item .ac-desc { color: #71717a; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+
 /* D3 graphs */
 .graph-container svg { width: 100%; }
 

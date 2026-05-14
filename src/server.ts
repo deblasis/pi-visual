@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join, extname } from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { WebSocketServer, type WebSocket } from "ws";
-import type { ClientMessage, Block, ChatItem } from "./protocol.js";
+import type { ClientMessage, Block, ChatItem, CommandItem } from "./protocol.js";
 import * as debug from "./debug.js";
 
 const MIME_TYPES: Record<string, string> = {
@@ -33,7 +33,10 @@ export interface VisualServer {
   pushTerminalChat: (text: string, images?: Array<{ mimeType: string; data: string }>) => void;
   pushToolCallStart: (id: string, toolName: string, input: Record<string, unknown>) => void;
   pushToolCallEnd: (id: string, result?: string, isError?: boolean) => void;
+  pushCommands: (items: CommandItem[]) => void;
+  pushStatus: (info: { model?: string; cwd?: string; sessionId?: string }) => void;
   onInteraction: ((msg: ClientMessage) => void) | null;
+  onConnect: (() => void) | null;
   flushPending: () => void;
 }
 
@@ -80,6 +83,9 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
       if (history.length > 0) {
         ws.send(JSON.stringify({ type: "history", items: history }));
       }
+
+      // Notify extension that a browser connected
+      if (instance?.onConnect) instance.onConnect();
 
       ws.on("message", (raw: Buffer) => {
         try {
@@ -226,6 +232,13 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         send({ type: "tool_call_end", id, result, isError });
       },
       onInteraction: null,
+      onConnect: null,
+      pushCommands(items: CommandItem[]) {
+        send({ type: "commands", items });
+      },
+      pushStatus(info: { model?: string; cwd?: string; sessionId?: string }) {
+        send({ type: "status", ...info });
+      },
       flushPending() {
         while (pendingMessages.length > 0) {
           const msg = pendingMessages.shift()!;

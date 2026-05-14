@@ -20,7 +20,23 @@ interface VisualState {
   server: VisualServer | null;
   blocksRendered: number;
   portlessInfo: PortlessInfo | null;
+  model: string | null;
+  cwd: string | null;
+  sessionId: string | null;
 }
+
+const BUILTIN_COMMANDS = [
+  { name: "model", description: "Switch or cycle AI model" },
+  { name: "compact", description: "Compact conversation history" },
+  { name: "clear", description: "Clear conversation" },
+  { name: "help", description: "Show available commands" },
+  { name: "reload", description: "Reload extensions" },
+  { name: "settings", description: "Open settings" },
+  { name: "undo", description: "Undo last turn" },
+  { name: "copy", description: "Copy last response" },
+  { name: "branch", description: "Create conversation branch" },
+  { name: "cost", description: "Show session cost" },
+];
 
 async function getPortlessInfo(port: number, cwd: string, sessionId: string): Promise<PortlessInfo | null> {
   const portlessDir = join(homedir(), ".portless");
@@ -103,7 +119,29 @@ export default function (pi: ExtensionAPI) {
     server: null,
     blocksRendered: 0,
     portlessInfo: null,
+    model: null,
+    cwd: null,
+    sessionId: null,
   };
+
+  function pushCommands() {
+    if (!state.server) return;
+    try {
+      const ext = pi.getCommands().map((c) => ({ name: c.name, description: c.description }));
+      state.server.pushCommands([...BUILTIN_COMMANDS, ...ext]);
+    } catch {
+      state.server.pushCommands(BUILTIN_COMMANDS);
+    }
+  }
+
+  function pushStatus() {
+    if (!state.server) return;
+    state.server.pushStatus({
+      model: state.model || undefined,
+      cwd: state.cwd || undefined,
+      sessionId: state.sessionId || undefined,
+    });
+  }
 
   function updateStatus(ctx: ExtensionContext, connected: boolean) {
     if (!state.active) {
@@ -133,6 +171,11 @@ export default function (pi: ExtensionAPI) {
       state.blocksRendered = 0;
 
       // Handle interactions from browser
+      server.onConnect = () => {
+        debug.log("Browser connected, pushing commands + status");
+        pushCommands();
+        pushStatus();
+      };
       server.onInteraction = (msg: ClientMessage) => {
         try {
           const msgPreview = { ...msg };
@@ -188,6 +231,15 @@ export default function (pi: ExtensionAPI) {
 
       // Flush any messages that arrived before the handler was set
       server.flushPending();
+
+      // Capture context info for status bar
+      state.cwd = ctx.cwd;
+      state.sessionId = ctx.sessionManager.getSessionId();
+      state.model = ctx.model?.id ?? null;
+
+      // Push commands + status after server is up
+      pushCommands();
+      pushStatus();
 
       // Activate the visual tool
       pi.setActiveTools([...pi.getActiveTools(), "visual"]);
@@ -366,6 +418,12 @@ export default function (pi: ExtensionAPI) {
     if (text.trim() || images.length > 0) {
       state.server.pushAssistantText(text, images.length > 0 ? images : undefined);
     }
+  });
+
+  // Update status bar when model changes
+  pi.on("model_select", async (event) => {
+    state.model = event.model?.id ?? null;
+    pushStatus();
   });
 
   // Cleanup on session shutdown (no ctx available)

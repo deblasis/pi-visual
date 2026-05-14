@@ -14,6 +14,11 @@ const removeImageBtn = document.getElementById("remove-image");
 const reconnectOverlay = document.getElementById("reconnect-overlay");
 const dropOverlay = document.getElementById("drop-overlay");
 const toggleToolsBtn = document.getElementById("toggle-tools-btn");
+const statusConnection = document.getElementById("status-connection");
+const statusModel = document.getElementById("status-model");
+const statusCwd = document.getElementById("status-cwd");
+const statusSession = document.getElementById("status-session");
+const acDropdown = document.getElementById("autocomplete-dropdown");
 
 let ws = null;
 let reconnectAttempts = 0;
@@ -22,6 +27,10 @@ let pendingImage = null;
 let currentThinkingEl = null;
 let currentWorkingEl = null;
 let toolsHidden = false;
+let commands = [];
+let acVisible = false;
+let acIndex = -1;
+let acFiltered = [];
 
 // ─── Virtualization ───
 const virtualItems = [];
@@ -425,9 +434,9 @@ function wsUrl() {
 
 function connect() {
   ws = new WebSocket(wsUrl());
-  ws.onopen = () => { reconnectAttempts = 0; reconnectOverlay.classList.add("hidden"); statusIndicator.textContent = "● Connected"; statusIndicator.className = "text-xs text-green-400"; };
+  ws.onopen = () => { reconnectAttempts = 0; reconnectOverlay.classList.add("hidden"); statusIndicator.textContent = "● Connected"; statusIndicator.className = "text-xs text-green-400"; updateConnectionStatus(true); };
   ws.onmessage = (e) => { try { handleMessage(JSON.parse(e.data)); } catch {} };
-  ws.onclose = () => { statusIndicator.textContent = "○ Disconnected"; statusIndicator.className = "text-xs text-zinc-500"; reconnectOverlay.classList.remove("hidden"); scheduleReconnect(); };
+  ws.onclose = () => { statusIndicator.textContent = "○ Disconnected"; statusIndicator.className = "text-xs text-zinc-500"; updateConnectionStatus(false); reconnectOverlay.classList.remove("hidden"); scheduleReconnect(); };
   ws.onerror = () => {};
 }
 
@@ -501,6 +510,8 @@ function handleMessage(msg) {
       for (const b of msg.blocks) registerVirtualItem(b.id, "block", { block: b });
       break;
     case "update": updateBlock(msg.blockId, msg.patch); break;
+    case "commands": commands = msg.items || []; break;
+    case "status": updateStatusBar(msg); break;
     case "clear":
       cleanupVirtualization();
       initVirtualization();
@@ -1059,8 +1070,76 @@ renderers.tool_call = (data, id) => {
   return wrap;
 };
 
+// ─── Status bar ───
+function updateConnectionStatus(connected) {
+  if (!statusConnection) return;
+  const dot = connected ? '<span class="status-dot connected"></span>' : '<span class="status-dot disconnected"></span>';
+  statusConnection.innerHTML = `${dot}${connected ? 'connected' : 'disconnected'}`;
+}
+
+function updateStatusBar(msg) {
+  if (statusModel && msg.model) statusModel.textContent = '│ ' + msg.model;
+  if (statusCwd && msg.cwd) {
+    const parts = msg.cwd.replace(/\\/g, '/').split('/');
+    statusCwd.textContent = '│ ' + parts.slice(-2).join('/');
+  }
+  if (statusSession && msg.sessionId) statusSession.textContent = 'session: ' + msg.sessionId;
+}
+
+// ─── Autocomplete ───
+function showAutocomplete(filter) {
+  if (!commands.length) return;
+  const query = (filter || "").toLowerCase();
+  acFiltered = commands.filter(c => c.name.toLowerCase().includes(query));
+  if (!acFiltered.length) { hideAutocomplete(); return; }
+  acIndex = 0;
+  acVisible = true;
+  acDropdown.innerHTML = acFiltered.map((c, i) =>
+    `<div class="ac-item${i === 0 ? ' active' : ''}" data-index="${i}">` +
+    `<span class="ac-name">/${c.name}</span>` +
+    (c.description ? `<span class="ac-desc">${escapeHtml(c.description)}</span>` : '') +
+    '</div>'
+  ).join('');
+  acDropdown.classList.remove('hidden');
+  // Click handler for items
+  acDropdown.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      selectAutocomplete(parseInt(el.dataset.index));
+    });
+  });
+}
+
+function hideAutocomplete() {
+  acVisible = false;
+  acIndex = -1;
+  acFiltered = [];
+  acDropdown.classList.add('hidden');
+}
+
+function navigateAutocomplete(dir) {
+  if (!acVisible || !acFiltered.length) return;
+  acIndex = (acIndex + dir + acFiltered.length) % acFiltered.length;
+  acDropdown.querySelectorAll('.ac-item').forEach((el, i) => {
+    el.classList.toggle('active', i === acIndex);
+  });
+  // Scroll into view
+  const active = acDropdown.querySelector('.ac-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+function selectAutocomplete(index) {
+  if (!acVisible || index < 0 || index >= acFiltered.length) return;
+  const cmd = acFiltered[index];
+  textInput.value = '/' + cmd.name + ' ';
+  hideAutocomplete();
+  textInput.focus();
+  textInput.style.height = 'auto'; textInput.style.height = Math.min(textInput.scrollHeight, 120) + 'px';
+}
+
 // ─── Text input ───
 function sendTextInput() {
+  hideAutocomplete();
   const t = textInput.value.trim(); if (!t && !pendingImage) return;
   const msg = { type: "text", text: t || "" };
   if (pendingImage) msg.images = [{ mediaType: pendingImage.mediaType, data: pendingImage.data }];
@@ -1068,8 +1147,26 @@ function sendTextInput() {
   textInput.style.height = "auto"; textInput.style.height = "38px";
 }
 sendBtn.addEventListener("click", sendTextInput);
-textInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTextInput(); } });
-textInput.addEventListener("input", () => { textInput.style.height = "auto"; textInput.style.height = Math.min(textInput.scrollHeight, 120) + "px"; });
+textInput.addEventListener("keydown", e => {
+  if (acVisible) {
+    if (e.key === "ArrowDown") { e.preventDefault(); navigateAutocomplete(1); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); navigateAutocomplete(-1); return; }
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); selectAutocomplete(acIndex); return; }
+    if (e.key === "Escape") { e.preventDefault(); hideAutocomplete(); return; }
+  }
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTextInput(); }
+});
+textInput.addEventListener("input", () => {
+  textInput.style.height = "auto"; textInput.style.height = Math.min(textInput.scrollHeight, 120) + "px";
+  // Show autocomplete when typing / at start
+  const val = textInput.value;
+  if (val.startsWith("/")) {
+    showAutocomplete(val.slice(1));
+  } else {
+    hideAutocomplete();
+  }
+});
+textInput.addEventListener("blur", () => { setTimeout(hideAutocomplete, 150); });
 
 // ─── Image paste ───
 function loadImage(file) {

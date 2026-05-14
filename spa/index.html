@@ -25,13 +25,23 @@
       Send a message to start chatting...
     </div>
   </main>
-  <footer class="border-t border-zinc-800 bg-zinc-900/80 backdrop-blur px-4 py-3 sticky bottom-0">
+  <div id="status-bar" class="border-t border-zinc-800 bg-zinc-900 px-4 py-1.5 flex items-center gap-4 text-xs text-zinc-500 shrink-0">
+    <div class="max-w-4xl w-full mx-auto flex items-center gap-4">
+      <span id="status-connection" class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>disconnected</span>
+      <span id="status-model" class="truncate"></span>
+      <span id="status-cwd" class="truncate hidden sm:inline"></span>
+      <span id="status-session" class="ml-auto hidden sm:inline text-zinc-600"></span>
+    </div>
+  </div>
+  <footer class="border-t border-zinc-800 bg-zinc-900/80 backdrop-blur px-4 py-3 sticky bottom-0 relative">
     <div class="max-w-4xl mx-auto">
       <!-- Drop zone overlay -->
       <div id="drop-overlay" class="hidden absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-400 rounded-lg z-10 flex items-center justify-center pointer-events-none">
         <span class="text-blue-300 text-sm font-medium">Drop image here</span>
       </div>
-      <div class="flex gap-2 items-end">
+      <div class="flex gap-2 items-end relative">
+        <div id="autocomplete-dropdown" class="hidden absolute bottom-full left-0 right-16 mb-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
+        </div>
         <div class="flex-1 relative">
           <textarea id="text-input" rows="1" placeholder="Type a message or paste/drop an image..."
             class="w-full bg-zinc-800 text-zinc-100 rounded-lg px-3 py-2 pr-16 text-sm resize-none border border-zinc-700 focus:border-blue-500 focus:outline-none placeholder-zinc-500"></textarea>

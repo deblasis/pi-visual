@@ -151,6 +151,23 @@ export interface WorkingEndMessage {
   type: "working_end";
 }
 
+export interface CommandItem {
+  name: string;
+  description?: string;
+}
+
+export interface CommandsMessage {
+  type: "commands";
+  items: CommandItem[];
+}
+
+export interface StatusMessage {
+  type: "status";
+  model?: string;
+  cwd?: string;
+  sessionId?: string;
+}
+
 export type ServerMessage =
   | HistoryMessage
   | BlocksMessage
@@ -164,7 +181,9 @@ export type ServerMessage =
   | WorkingEndMessage
   | TerminalChatMessage
   | UpdateMessage
-  | ClearMessage;
+  | ClearMessage
+  | CommandsMessage
+  | StatusMessage;
 
 // ─── Browser → Server messages ───
 
