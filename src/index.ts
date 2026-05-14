@@ -1,6 +1,6 @@
 // src/index.ts
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage, TextContent } from "@earendil-works/pi-ai";
+import type { AgentMessage, TextContent, ImageContent } from "@earendil-works/pi-ai";
 import { createVisualServer, type VisualServer } from "./server.js";
 import type { ClientMessage } from "./protocol.js";
 import { createVisualTool } from "./tool.js";
@@ -21,6 +21,13 @@ function getTextContent(message: AgentMessage): string {
     .filter((block): block is TextContent => block.type === "text")
     .map((block) => block.text)
     .join("\n");
+}
+
+function getImages(message: AgentMessage): Array<{ mimeType: string; data: string }> {
+  if (!Array.isArray(message.content)) return [];
+  return message.content
+    .filter((block): block is ImageContent => block.type === "image")
+    .map((block) => ({ mimeType: block.mimeType, data: block.data }));
 }
 
 export default function (pi: ExtensionAPI) {
@@ -59,57 +66,58 @@ export default function (pi: ExtensionAPI) {
 
       // Handle interactions from browser
       server.onInteraction = (msg: ClientMessage) => {
-        console.log("[pi-visual] onInteraction called:", JSON.stringify(msg).substring(0, 200));
+        try {
+          const msgPreview = { ...msg };
+          if (msgPreview.images) msgPreview.images = [`[${msg.images.length} image(s)]`];
+          console.log("[pi-visual] onInteraction:", JSON.stringify(msgPreview));
 
-        if (msg.type === "interaction") {
-          const actionText =
-            msg.action === "select"
-              ? `Selected: ${msg.value}`
-              : msg.action === "toggle"
-                ? `Toggled: ${msg.blockId}`
-                : msg.action === "submit"
-                  ? `Submitted: ${JSON.stringify(msg.values)}`
-                  : `Interacted: ${msg.blockId}`;
+          if (msg.type === "interaction") {
+            const actionText =
+              msg.action === "select"
+                ? `Selected: ${msg.value}`
+                : msg.action === "toggle"
+                  ? `Toggled: ${msg.blockId}`
+                  : msg.action === "submit"
+                    ? `Submitted: ${JSON.stringify(msg.values)}`
+                    : `Interacted: ${msg.blockId}`;
 
-          console.log("[pi-visual] Sending interaction as steer:", actionText);
-          pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
-          console.log("[pi-visual] sendUserMessage (interaction) called OK");
-        } else if (msg.type === "text") {
-          try {
+            console.log("[pi-visual] Sending interaction as steer:", actionText);
+            pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
+            console.log("[pi-visual] sendUserMessage (interaction) OK");
+          } else if (msg.type === "text") {
             // Echo user message to browser chat
-            const images = msg.images?.length ? msg.images : undefined;
+            const hasImages = Array.isArray(msg.images) && msg.images.length > 0;
+            const images = hasImages ? msg.images : undefined;
+            console.log("[pi-visual] pushUserChat, text:", (msg.text || "").substring(0, 50), "images:", images?.length ?? 0);
             server.pushUserChat(msg.text || "(image)", images);
 
             // Show thinking indicator
             server.pushThinkingStart();
 
             // Forward to pi
-            if (msg.images?.length) {
-              // Multi-modal: text + images using proper TextContent | ImageContent format
+            if (hasImages) {
               const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [];
               if (msg.text) {
                 content.push({ type: "text", text: msg.text });
               }
               for (const img of msg.images) {
-                content.push({ type: "image", data: img.data, mimeType: img.mediaType });
+                content.push({ type: "image", data: img.data || "", mimeType: img.mediaType || "image/png" });
               }
-              console.log("[pi-visual] Sending multimodal message, length:", content.length);
+              console.log("[pi-visual] Calling sendUserMessage with multimodal, items:", content.length);
               pi.sendUserMessage(content);
-              console.log("[pi-visual] sendUserMessage (multimodal) called OK");
+              console.log("[pi-visual] sendUserMessage (multimodal) OK");
             } else if (msg.text) {
-              // Text-only: send as plain string
-              console.log("[pi-visual] Sending text message:", msg.text.substring(0, 100));
+              console.log("[pi-visual] Calling sendUserMessage with text:", msg.text.substring(0, 100));
               pi.sendUserMessage(msg.text);
-              console.log("[pi-visual] sendUserMessage (text) called OK");
+              console.log("[pi-visual] sendUserMessage (text) OK");
             } else {
               console.warn("[pi-visual] No text or images to send");
             }
-          } catch (err) {
-            console.error("[pi-visual] Error forwarding message:", err);
-            server.pushThinkingEnd();
-            const errMsg = err instanceof Error ? err.message : String(err);
-            server.pushAssistantText(`[pi-visual] Error forwarding message: ${errMsg}`);
           }
+        } catch (err) {
+          console.error("[pi-visual] onInteraction ERROR:", err);
+          const errMsg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+          server.pushAssistantText(`[pi-visual] Error: ${errMsg}`);
         }
       };
 
@@ -234,8 +242,9 @@ export default function (pi: ExtensionAPI) {
     if (!isAssistantMessage(event.message)) return;
 
     const text = getTextContent(event.message);
-    if (text.trim()) {
-      state.server.pushAssistantText(text);
+    const images = getImages(event.message);
+    if (text.trim() || images.length > 0) {
+      state.server.pushAssistantText(text, images.length > 0 ? images : undefined);
     }
   });
 

@@ -24,7 +24,7 @@ export interface VisualServer {
   updateBlock: (blockId: string, patch: Record<string, unknown>) => void;
   clearBlocks: () => void;
   pushUserChat: (text: string, images?: Array<{ mediaType: string; data: string }>) => void;
-  pushAssistantText: (text: string) => void;
+  pushAssistantText: (text: string, images?: Array<{ mimeType: string; data: string }>) => void;
   pushThinkingStart: () => void;
   pushThinkingEnd: () => void;
   pushWorkingStart: () => void;
@@ -152,7 +152,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         history.push(item);
         send({ type: "user_chat", id, text, ...(images?.length ? { images } : {}) });
       },
-      pushAssistantText(text: string) {
+      pushAssistantText(text: string, images?: Array<{ mimeType: string; data: string }>) {
         // End thinking if active
         if (thinkingId) {
           send({ type: "thinking_end", id: thinkingId });
@@ -167,9 +167,9 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         }
 
         const id = `assistant-${Date.now()}`;
-        const item: ChatItem = { type: "assistant_chat", id, text };
+        const item: ChatItem = { type: "assistant_chat", id, text, ...(images?.length ? { images } : {}) };
         history.push(item);
-        send({ type: "assistant_chat", id, text });
+        send({ type: "assistant_chat", id, text, ...(images?.length ? { images } : {}) });
       },
       pushThinkingStart() {
         if (thinkingId) return; // Already thinking

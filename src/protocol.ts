@@ -42,6 +42,7 @@ export interface AssistantChatItem {
   type: "assistant_chat";
   id: string;
   text: string;
+  images?: Array<{ mimeType: string; data: string }>;
 }
 
 export interface ThinkingItem {
@@ -90,6 +91,7 @@ export interface AssistantChatMessage {
   type: "assistant_chat";
   id: string;
   text: string;
+  images?: Array<{ mimeType: string; data: string }>;
 }
 
 export interface ThinkingStartMessage {

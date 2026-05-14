@@ -33,8 +33,13 @@ function scrollToBottom() {
 }
 
 function maybeScrollToBottom() {
-  if (isNearBottom()) {
-    scrollToBottom();
+  // Capture whether user was near bottom BEFORE the new content reflows
+  const nearBottom = isNearBottom();
+  if (nearBottom) {
+    // Wait for DOM layout to update, then scroll
+    requestAnimationFrame(() => {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    });
   }
 }
 
@@ -108,7 +113,7 @@ function appendUserMessage(id, text, images) {
   maybeScrollToBottom();
 }
 
-function appendAssistantMessage(id, text) {
+function appendAssistantMessage(id, text, images) {
   hideEmpty();
   removeThinking();
   removeWorking();
@@ -117,8 +122,23 @@ function appendAssistantMessage(id, text) {
   wrap.className = "msg-assistant";
   const bubble = document.createElement("div");
   bubble.className = "msg-bubble text-sm text-zinc-200";
-  bubble.innerHTML = renderMarkdown(text);
-  bubble.querySelectorAll("script").forEach(s => s.remove());
+  if (images?.length) {
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "msg-images";
+    for (const img of images) {
+      const imgEl = document.createElement("img");
+      imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+      imgEl.alt = "Image";
+      imgDiv.appendChild(imgEl);
+    }
+    bubble.appendChild(imgDiv);
+  }
+  if (text) {
+    const textDiv = document.createElement("div");
+    textDiv.innerHTML = renderMarkdown(text);
+    textDiv.querySelectorAll("script").forEach(s => s.remove());
+    bubble.appendChild(textDiv);
+  }
   wrap.appendChild(bubble);
   chatContainer.appendChild(wrap);
   maybeScrollToBottom();
