@@ -4,6 +4,7 @@ import type { AgentMessage, TextContent, ImageContent } from "@earendil-works/pi
 import { createVisualServer, type VisualServer } from "./server.js";
 import type { ClientMessage } from "./protocol.js";
 import { createVisualTool } from "./tool.js";
+import * as debug from "./debug.js";
 
 interface VisualState {
   active: boolean;
@@ -69,7 +70,7 @@ export default function (pi: ExtensionAPI) {
         try {
           const msgPreview = { ...msg };
           if (msgPreview.images) msgPreview.images = [`[${msgPreview.images?.length ?? 0} image(s)]`];
-          console.log("[pi-visual] onInteraction:", JSON.stringify(msgPreview));
+          debug.log("onInteraction:", JSON.stringify(msgPreview));
 
           if (msg.type === "interaction") {
             const actionText =
@@ -81,14 +82,13 @@ export default function (pi: ExtensionAPI) {
                     ? `Submitted: ${JSON.stringify(msg.values)}`
                     : `Interacted: ${msg.blockId}`;
 
-            console.log("[pi-visual] Sending interaction as steer:", actionText);
+            debug.log("Sending interaction as steer:", actionText);
             pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
-            console.log("[pi-visual] sendUserMessage (interaction) OK");
           } else if (msg.type === "text") {
             // Echo user message to browser chat
             const hasImages = Array.isArray(msg.images) && msg.images.length > 0;
             const images = hasImages ? msg.images : undefined;
-            console.log("[pi-visual] pushUserChat, text:", (msg.text || "").substring(0, 50), "images:", images?.length ?? 0);
+            debug.log("pushUserChat, text:", (msg.text || "").substring(0, 50), "images:", images?.length ?? 0);
             server.pushUserChat(msg.text || "(image)", images);
 
             // Show thinking indicator
@@ -103,20 +103,18 @@ export default function (pi: ExtensionAPI) {
               for (const img of msg.images) {
                 content.push({ type: "image", data: img.data || "", mimeType: img.mediaType || "image/png" });
               }
-              console.log("[pi-visual] Calling sendUserMessage with multimodal, items:", content.length);
+              debug.log("sendUserMessage multimodal, items:", content.length);
               pi.sendUserMessage(content);
-              console.log("[pi-visual] sendUserMessage (multimodal) OK");
             } else if (msg.text) {
-              console.log("[pi-visual] Calling sendUserMessage with text:", msg.text.substring(0, 100));
+              debug.log("sendUserMessage text:", msg.text.substring(0, 100));
               pi.sendUserMessage(msg.text);
-              console.log("[pi-visual] sendUserMessage (text) OK");
             } else {
-              console.warn("[pi-visual] No text or images to send");
+              debug.warn("No text or images to send");
             }
           }
         } catch (err) {
-          console.error("[pi-visual] onInteraction ERROR:", err);
-          const errMsg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+          debug.error("onInteraction ERROR:", err);
+          const errMsg = err instanceof Error ? err.message : String(err);
           server.pushAssistantText(`[pi-visual] Error: ${errMsg}`);
         }
       };
@@ -223,20 +221,20 @@ export default function (pi: ExtensionAPI) {
   // Capture assistant text responses and forward to browser
   pi.on("turn_start", async () => {
     if (!state.active || !state.server) return;
-    console.log("[pi-visual] turn_start");
+    debug.log("turn_start");
     state.server.pushThinkingEnd();
     state.server.pushWorkingStart();
   });
 
   pi.on("tool_execution_start", async (event) => {
     if (!state.active || !state.server) return;
-    console.log("[pi-visual] tool_execution_start:", event.toolName, event.toolCallId);
+    debug.log("tool_execution_start:", event.toolName, event.toolCallId);
     state.server.pushToolCallStart(event.toolCallId, event.toolName, event.args ?? {});
   });
 
   pi.on("tool_execution_end", async (event) => {
     if (!state.active || !state.server) return;
-    console.log("[pi-visual] tool_execution_end:", event.toolName, event.toolCallId, "isError:", event.isError);
+    debug.log("tool_execution_end:", event.toolName, event.toolCallId, "isError:", event.isError);
     const result = event.result;
     let resultText = "";
     if (result?.content && Array.isArray(result.content)) {
@@ -251,7 +249,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("turn_end", async (event) => {
     if (!state.active || !state.server) return;
-    console.log("[pi-visual] turn_end, role:", event.message.role);
+    debug.log("turn_end, role:", event.message.role);
     state.server.pushWorkingEnd();
     if (!isAssistantMessage(event.message)) return;
 

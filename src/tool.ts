@@ -2,6 +2,8 @@
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { StringEnum } from "@earendil-works/pi-ai";
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
 import type { Block, BlockType } from "./protocol.js";
 
 interface VisualState {
@@ -95,7 +97,25 @@ Guidelines:
         throw new Error("Visual mode is not active. Use /visual to enable it.");
       }
 
-      const blocksWithIds: Block[] = params.blocks.map((block, i) => ({
+      // Resolve local file paths in image blocks to data URIs
+      const resolvedBlocks = await Promise.all(params.blocks.map(async (block) => {
+        if (block.type === "image" && block.content?.src) {
+          const src: string = block.content.src;
+          if (!src.startsWith("data:") && !src.startsWith("http:") && !src.startsWith("https:")) {
+            try {
+              const filePath = src.startsWith("file:///") ? new URL(src).pathname.replace(/^\/(?:[A-Za-z]:)/, (m) => m.slice(1)) : src;
+              const data = await readFile(filePath);
+              const ext = extname(filePath).toLowerCase();
+              const mimeMap: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml", ".bmp": "image/bmp" };
+              const mime = mimeMap[ext] || "image/png";
+              return { ...block, content: { ...block.content, src: `data:${mime};base64,${data.toString("base64")}` } };
+            } catch { /* leave src as-is */ }
+          }
+        }
+        return block;
+      }));
+
+      const blocksWithIds: Block[] = resolvedBlocks.map((block, i) => ({
         id: `block-${Date.now()}-${i}`,
         type: block.type as BlockType,
         content: block.content,

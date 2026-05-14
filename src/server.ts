@@ -4,6 +4,7 @@ import { join, extname } from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage, Block, ChatItem } from "./protocol.js";
+import * as debug from "./debug.js";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
@@ -83,17 +84,17 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
       ws.on("message", (raw: Buffer) => {
         try {
           const msg: ClientMessage = JSON.parse(raw.toString());
-          console.log("[pi-visual] WS received:", JSON.stringify(msg).substring(0, 200));
+          debug.log("WS received:", JSON.stringify(msg).substring(0, 200));
           if (msg.type === "interaction" || msg.type === "text") {
             if (!instance?.onInteraction) {
-              console.log("[pi-visual] Queuing message, handler not ready yet");
+              debug.log("Queuing message, handler not ready yet");
               pendingMessages.push(msg);
               return;
             }
             instance.onInteraction(msg);
           }
         } catch (err) {
-          console.error("[pi-visual] WS message error:", err);
+          debug.error("WS message error:", err);
           const errMsg = err instanceof Error ? err.message : String(err);
           send({ type: "assistant_chat", id: `error-${Date.now()}`, text: `[pi-visual] Server error: ${errMsg}` });
         }
@@ -228,11 +229,11 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
       flushPending() {
         while (pendingMessages.length > 0) {
           const msg = pendingMessages.shift()!;
-          console.log("[pi-visual] Flushing queued message");
+          debug.log("Flushing queued message");
           try {
             instance?.onInteraction?.(msg);
           } catch (err) {
-            console.error("[pi-visual] Error flushing message:", err);
+            debug.error("Error flushing message:", err);
           }
         }
       },
