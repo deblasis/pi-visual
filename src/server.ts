@@ -33,6 +33,7 @@ export interface VisualServer {
   pushToolCallStart: (id: string, toolName: string, input: Record<string, unknown>) => void;
   pushToolCallEnd: (id: string, result?: string, isError?: boolean) => void;
   onInteraction: ((msg: ClientMessage) => void) | null;
+  flushPending: () => void;
 }
 
 export function createVisualServer(spaDir: string): Promise<VisualServer> {
@@ -41,6 +42,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
     let activeWs: WebSocket | null = null;
     let thinkingId: string | null = null;
     let workingId: string | null = null;
+    const pendingMessages: ClientMessage[] = [];
 
     function send(msg: object) {
       if (activeWs?.readyState === 1) activeWs.send(JSON.stringify(msg));
@@ -84,12 +86,11 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
           console.log("[pi-visual] WS received:", JSON.stringify(msg).substring(0, 200));
           if (msg.type === "interaction" || msg.type === "text") {
             if (!serverObj.onInteraction) {
-              console.error("[pi-visual] ERROR: onInteraction is not set!");
-              send({ type: "assistant_chat", id: `error-${Date.now()}`, text: "[pi-visual] Error: onInteraction handler not registered" });
+              console.log("[pi-visual] Queuing message, handler not ready yet");
+              pendingMessages.push(msg);
               return;
             }
             serverObj.onInteraction(msg);
-            console.log("[pi-visual] onInteraction called successfully");
           }
         } catch (err) {
           console.error("[pi-visual] WS message error:", err);
@@ -222,6 +223,17 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         send({ type: "tool_call_end", id, result, isError });
       },
       onInteraction: null,
+      flushPending() {
+        while (pendingMessages.length > 0) {
+          const msg = pendingMessages.shift()!;
+          console.log("[pi-visual] Flushing queued message");
+          try {
+            serverObj.onInteraction?.(msg);
+          } catch (err) {
+            console.error("[pi-visual] Error flushing message:", err);
+          }
+        }
+      },
     });
   });
 }

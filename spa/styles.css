@@ -262,9 +262,6 @@
   overflow: hidden;
   transition: border-color 0.2s;
 }
-.tool-call-card.tools-hidden {
-  display: none;
-}
 .tool-call-header {
   display: flex;
   align-items: center;

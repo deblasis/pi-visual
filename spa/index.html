@@ -6,8 +6,7 @@
   <title>pi visual</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/shiki@1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -17,7 +16,7 @@
       <span class="text-lg font-semibold text-zinc-100">pi visual</span>
       <span id="status-indicator" class="text-xs text-zinc-500">Connecting...</span>
     </div>
-    <button id="toggle-tools-btn" class="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-md border border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 transition-colors">Hide Tools</button>
+    <button id="toggle-tools-btn" class="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-md border border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 transition-colors">Collapse Tools</button>
   </header>
   <main id="chat-container" class="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-4xl w-full mx-auto">
     <div id="empty-state" class="flex items-center justify-center h-64 text-zinc-600 text-sm">

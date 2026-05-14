@@ -121,6 +121,9 @@ export default function (pi: ExtensionAPI) {
         }
       };
 
+      // Flush any messages that arrived before the handler was set
+      server.flushPending();
+
       // Activate the visual tool
       pi.setActiveTools([...pi.getActiveTools(), "visual"]);
       updateStatus(ctx, true);

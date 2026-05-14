@@ -334,7 +334,11 @@ function appendToolCallStart(id, toolName, input) {
 
   wrap.appendChild(header);
   wrap.appendChild(body);
-  if (toolsHidden) wrap.classList.add("tools-hidden");
+  if (toolsHidden) {
+    body.classList.add("collapsed");
+    const t = wrap.querySelector(".tool-toggle");
+    if (t) t.textContent = "▶";
+  }
   chatContainer.appendChild(wrap);
   maybeScrollToBottom();
 }
@@ -918,13 +922,16 @@ footer.addEventListener("drop", e => {
 function clearPendingImage() { pendingImage = null; imagePreview.classList.add("hidden"); }
 removeImageBtn.addEventListener("click", clearPendingImage);
 
-// ─── Toggle tools visibility ───
+// ─── Toggle tools visibility (collapse/expand) ───
 if (toggleToolsBtn) {
   toggleToolsBtn.addEventListener("click", () => {
     toolsHidden = !toolsHidden;
-    toggleToolsBtn.textContent = toolsHidden ? "Show Tools" : "Hide Tools";
+    toggleToolsBtn.textContent = toolsHidden ? "Expand Tools" : "Collapse Tools";
     document.querySelectorAll(".tool-call-card").forEach(el => {
-      el.classList.toggle("tools-hidden", toolsHidden);
+      const body = el.querySelector(".tool-call-body");
+      const toggle = el.querySelector(".tool-toggle");
+      if (body) body.classList.toggle("collapsed", toolsHidden);
+      if (toggle) toggle.textContent = toolsHidden ? "▶" : "▼";
     });
   });
 }
