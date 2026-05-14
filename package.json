@@ -3,13 +3,26 @@
   "version": "0.1.0",
   "description": "Visual interaction extension for pi coding agent",
   "main": "src/index.ts",
-  "pi": { "extensions": ["./src/index.ts"] },
-  "dependencies": { "ws": "^8.18.0" },
-  "devDependencies": { "@types/ws": "^8.18.0" },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.0",
+    "portless": "^0.13.0"
+  },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
-    "@earendil-works/pi-ai": "*",
+    "portless": ">=0.10.0",
     "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "portless": { "optional": true }
   }
 }
