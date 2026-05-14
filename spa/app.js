@@ -1,21 +1,24 @@
-// spa/app.js — WebSocket client, block renderers, input handler
+// spa/app.js — WebSocket client, chat UI, block renderers, input handler
 
 // ─── DOM refs ───
-const blocksContainer = document.getElementById("blocks-container");
+const chatContainer = document.getElementById("chat-container");
 const emptyState = document.getElementById("empty-state");
 const statusIndicator = document.getElementById("status-indicator");
 const textInput = document.getElementById("text-input");
 const sendBtn = document.getElementById("send-btn");
-const pasteBtn = document.getElementById("paste-btn");
+const uploadBtn = document.getElementById("upload-btn");
+const fileInput = document.getElementById("file-input");
 const imagePreview = document.getElementById("image-preview");
 const previewFilename = document.getElementById("preview-filename");
 const removeImageBtn = document.getElementById("remove-image");
 const reconnectOverlay = document.getElementById("reconnect-overlay");
+const dropOverlay = document.getElementById("drop-overlay");
 
 let ws = null;
 let reconnectAttempts = 0;
 const MAX_DELAY = 30000;
 let pendingImage = null;
+let currentThinkingEl = null;
 
 // ─── Helpers ───
 function escapeHtml(s) {
@@ -40,7 +43,93 @@ function sendProsCons(opts) {
   sendToServer({ type: "text", text: "Compare these options with pros and cons: " + opts.map(o => o.title || o.value).join(", ") });
 }
 
-function scrollToBottom() { blocksContainer.scrollTop = blocksContainer.scrollHeight; }
+function scrollToBottom() { chatContainer.scrollTop = chatContainer.scrollHeight; }
+
+function hideEmpty() {
+  if (emptyState && !emptyState.classList.contains("hidden")) {
+    emptyState.classList.add("hidden");
+    if (emptyState.parentNode === chatContainer) chatContainer.removeChild(emptyState);
+  }
+}
+
+// ─── Chat message rendering ───
+
+function renderMarkdown(text) {
+  try {
+    if (window.marked) return marked.parse(text || "");
+    return escapeHtml(text || "").replace(/\n/g, "<br>");
+  } catch {
+    return escapeHtml(text || "").replace(/\n/g, "<br>");
+  }
+}
+
+function appendUserMessage(id, text, images) {
+  hideEmpty();
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-user";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  if (images?.length) {
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "msg-images";
+    for (const img of images) {
+      const imgEl = document.createElement("img");
+      imgEl.src = `data:${img.mediaType};base64,${img.data}`;
+      imgEl.alt = "Uploaded image";
+      imgDiv.appendChild(imgEl);
+    }
+    bubble.appendChild(imgDiv);
+  }
+  if (text) {
+    const p = document.createElement("p");
+    p.className = "text-sm text-white";
+    p.textContent = text;
+    bubble.appendChild(p);
+  }
+  wrap.appendChild(bubble);
+  chatContainer.appendChild(wrap);
+  scrollToBottom();
+}
+
+function appendAssistantMessage(id, text) {
+  hideEmpty();
+  // Remove thinking indicator if present
+  removeThinking();
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-assistant";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble text-sm text-zinc-200";
+  bubble.innerHTML = renderMarkdown(text);
+  // Sanitize scripts
+  bubble.querySelectorAll("script").forEach(s => s.remove());
+  wrap.appendChild(bubble);
+  chatContainer.appendChild(wrap);
+  scrollToBottom();
+}
+
+function showThinking(id) {
+  hideEmpty();
+  if (currentThinkingEl) return; // Already showing
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-thinking";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  bubble.innerHTML = `<span class="text-xs text-zinc-500">thinking</span><div class="thinking-dots"><span></span><span></span><span></span></div>`;
+  wrap.appendChild(bubble);
+  chatContainer.appendChild(wrap);
+  currentThinkingEl = wrap;
+  scrollToBottom();
+}
+
+function removeThinking() {
+  if (currentThinkingEl) {
+    currentThinkingEl.remove();
+    currentThinkingEl = null;
+  }
+}
 
 // ─── WebSocket ───
 function wsUrl() {
@@ -67,17 +156,42 @@ function handleMessage(msg) {
   switch (msg.type) {
     case "connected": break;
     case "history":
-      if (msg.blocks?.length) { emptyState.classList.add("hidden"); (async () => { for (const b of msg.blocks) await renderBlock(b); })(); }
+      if (msg.items?.length) {
+        hideEmpty();
+        (async () => {
+          for (const item of msg.items) {
+            if (item.type === "user_chat") appendUserMessage(item.id, item.text, item.images);
+            else if (item.type === "assistant_chat") appendAssistantMessage(item.id, item.text);
+            else if (item.type === "block") await renderBlock(item.block);
+            else if (item.type === "thinking") showThinking(item.id);
+          }
+          scrollToBottom();
+        })();
+      }
+      break;
+    case "user_chat":
+      appendUserMessage(msg.id, msg.text, msg.images);
+      break;
+    case "assistant_chat":
+      appendAssistantMessage(msg.id, msg.text);
+      break;
+    case "thinking_start":
+      showThinking(msg.id);
+      break;
+    case "thinking_end":
+      removeThinking();
       break;
     case "blocks":
-      emptyState.classList.add("hidden");
+      hideEmpty();
+      removeThinking();
       (async () => { for (const b of msg.blocks) await renderBlock(b); scrollToBottom(); })();
       break;
     case "update": updateBlock(msg.blockId, msg.patch); break;
     case "clear":
-      blocksContainer.innerHTML = "";
+      chatContainer.innerHTML = "";
+      chatContainer.appendChild(emptyState);
       emptyState.classList.remove("hidden");
-      blocksContainer.appendChild(emptyState);
+      currentThinkingEl = null;
       break;
   }
 }
@@ -94,18 +208,20 @@ const R = {};
 async function renderBlock(block) {
   const wrap = document.createElement("div");
   wrap.id = block.id;
-  wrap.className = "block-wrapper";
+  wrap.className = "block-chat-item";
+  const inner = document.createElement("div");
   const cls = block.style || "";
   try {
     const r = R[block.type];
-    if (r) { const c = await r(block.content, block.id, cls); if (c) wrap.appendChild(c); }
+    if (r) { const c = await r(block.content, block.id, cls); if (c) inner.appendChild(c); }
     else {
-      wrap.innerHTML = `<div class="block-card ${cls}"><p class="text-zinc-500 text-xs mb-2">Unknown block type: ${escapeHtml(block.type)}</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
+      inner.innerHTML = `<div class="block-card ${cls}"><p class="text-zinc-500 text-xs mb-2">Unknown block type: ${escapeHtml(block.type)}</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
     }
   } catch {
-    wrap.innerHTML = `<div class="block-card border-red-900 ${cls}"><p class="text-red-400 text-xs mb-2">⚠ Rendering error</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
+    inner.innerHTML = `<div class="block-card border-red-900 ${cls}"><p class="text-red-400 text-xs mb-2">⚠ Rendering error</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
   }
-  blocksContainer.appendChild(wrap);
+  wrap.appendChild(inner);
+  chatContainer.appendChild(wrap);
 }
 
 // ─── RENDERERS ───
@@ -488,17 +604,44 @@ textInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKe
 textInput.addEventListener("input", () => { textInput.style.height = "auto"; textInput.style.height = Math.min(textInput.scrollHeight, 120) + "px"; });
 
 // ─── Image paste ───
+function loadImage(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    pendingImage = { mediaType: file.type, data: r.result.split(",")[1], name: file.name || "image.png" };
+    previewFilename.textContent = pendingImage.name;
+    imagePreview.classList.remove("hidden");
+  };
+  r.readAsDataURL(file);
+}
+
 document.addEventListener("paste", e => {
   for (const it of e.clipboardData?.items || []) {
     if (it.type.startsWith("image/")) {
-      e.preventDefault(); const f = it.getAsFile();
-      const r = new FileReader();
-      r.onload = () => { pendingImage = { mediaType: it.type, data: r.result.split(",")[1], name: f?.name || "pasted-image.png" }; previewFilename.textContent = pendingImage.name; imagePreview.classList.remove("hidden"); };
-      r.readAsDataURL(f); return;
+      e.preventDefault();
+      loadImage(it.getAsFile());
+      return;
     }
   }
 });
-pasteBtn.addEventListener("click", () => { textInput.focus(); document.execCommand("paste"); });
+
+// Upload button
+uploadBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  if (fileInput.files?.[0]) loadImage(fileInput.files[0]);
+  fileInput.value = "";
+});
+
+// Drag and drop
+const footer = document.querySelector("footer");
+footer.addEventListener("dragover", e => { e.preventDefault(); dropOverlay.classList.remove("hidden"); });
+footer.addEventListener("dragleave", e => { if (!footer.contains(e.relatedTarget)) dropOverlay.classList.add("hidden"); });
+footer.addEventListener("drop", e => {
+  e.preventDefault(); dropOverlay.classList.add("hidden");
+  for (const f of e.dataTransfer?.files || []) {
+    if (f.type.startsWith("image/")) { loadImage(f); return; }
+  }
+});
+
 function clearPendingImage() { pendingImage = null; imagePreview.classList.add("hidden"); }
 removeImageBtn.addEventListener("click", clearPendingImage);
 

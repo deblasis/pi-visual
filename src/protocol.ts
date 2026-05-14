@@ -29,12 +29,68 @@ export interface Block {
   style?: string;
 }
 
+// ─── Chat message types ───
+
+export interface UserChatItem {
+  type: "user_chat";
+  id: string;
+  text: string;
+  images?: Array<{ mediaType: string; data: string }>;
+}
+
+export interface AssistantChatItem {
+  type: "assistant_chat";
+  id: string;
+  text: string;
+}
+
+export interface ThinkingItem {
+  type: "thinking";
+  id: string;
+}
+
+export interface BlockChatItem {
+  type: "block";
+  id: string;
+  block: Block;
+}
+
+export type ChatItem = UserChatItem | AssistantChatItem | ThinkingItem | BlockChatItem;
+
 // ─── Server → Browser messages ───
+
+export interface HistoryMessage {
+  type: "history";
+  items: ChatItem[];
+}
 
 export interface BlocksMessage {
   type: "blocks";
   id: string;
   blocks: Block[];
+}
+
+export interface UserChatMessage {
+  type: "user_chat";
+  id: string;
+  text: string;
+  images?: Array<{ mediaType: string; data: string }>;
+}
+
+export interface AssistantChatMessage {
+  type: "assistant_chat";
+  id: string;
+  text: string;
+}
+
+export interface ThinkingStartMessage {
+  type: "thinking_start";
+  id: string;
+}
+
+export interface ThinkingEndMessage {
+  type: "thinking_end";
+  id: string;
 }
 
 export interface UpdateMessage {
@@ -47,7 +103,15 @@ export interface ClearMessage {
   type: "clear";
 }
 
-export type ServerMessage = BlocksMessage | UpdateMessage | ClearMessage;
+export type ServerMessage =
+  | HistoryMessage
+  | BlocksMessage
+  | UserChatMessage
+  | AssistantChatMessage
+  | ThinkingStartMessage
+  | ThinkingEndMessage
+  | UpdateMessage
+  | ClearMessage;
 
 // ─── Browser → Server messages ───
 
@@ -66,10 +130,3 @@ export interface TextInputMessage {
 }
 
 export type ClientMessage = InteractionMessage | TextInputMessage;
-
-// ─── Connection messages ───
-
-export interface HistoryResponse {
-  type: "history";
-  blocks: Block[];
-}

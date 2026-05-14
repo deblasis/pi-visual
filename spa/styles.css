@@ -1,3 +1,64 @@
+/* Chat bubbles */
+.msg-user {
+  display: flex;
+  justify-content: flex-end;
+}
+.msg-user .msg-bubble {
+  background: #1d4ed8;
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  padding: 0.625rem 1rem;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+.msg-user .msg-bubble p { margin: 0; }
+.msg-user .msg-bubble .msg-images { margin-bottom: 0.375rem; }
+.msg-user .msg-bubble .msg-images img {
+  max-width: 100%; max-height: 200px; border-radius: 0.5rem;
+}
+
+.msg-assistant {
+  display: flex;
+  justify-content: flex-start;
+}
+.msg-assistant .msg-bubble {
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  padding: 0.625rem 1rem;
+  max-width: 85%;
+  word-wrap: break-word;
+}
+.msg-assistant .msg-bubble p { margin: 0; }
+.msg-assistant .msg-bubble p + p { margin-top: 0.5rem; }
+
+/* Thinking indicator */
+.msg-thinking {
+  display: flex;
+  justify-content: flex-start;
+}
+.msg-thinking .msg-bubble {
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.thinking-dots span {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #71717a;
+  animation: thinkingBounce 1.4s infinite ease-in-out both;
+}
+.thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+.thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes thinkingBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
 /* Block card */
 .block-card {
   background: #18181b;
@@ -89,12 +150,22 @@
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
 /* Scrollbar */
-#blocks-container::-webkit-scrollbar { width: 6px; }
-#blocks-container::-webkit-scrollbar-track { background: transparent; }
-#blocks-container::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+#chat-container::-webkit-scrollbar { width: 6px; }
+#chat-container::-webkit-scrollbar-track { background: transparent; }
+#chat-container::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
 
 /* Textarea */
 #text-input { max-height: 120px; min-height: 38px; }
 
 /* D3 graphs */
 .graph-container svg { width: 100%; }
+
+/* Block wrapper in chat */
+.block-chat-item {
+  display: flex;
+  justify-content: flex-start;
+}
+.block-chat-item > div {
+  max-width: 100%;
+  width: 100%;
+}

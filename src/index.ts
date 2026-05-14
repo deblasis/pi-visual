@@ -1,5 +1,6 @@
 // src/index.ts
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { AgentMessage, TextContent } from "@earendil-works/pi-ai";
 import { createVisualServer, type VisualServer } from "./server.js";
 import type { ClientMessage } from "./protocol.js";
 import { createVisualTool } from "./tool.js";
@@ -8,6 +9,18 @@ interface VisualState {
   active: boolean;
   server: VisualServer | null;
   blocksRendered: number;
+}
+
+function isAssistantMessage(m: AgentMessage): boolean {
+  return m.role === "assistant" && Array.isArray(m.content);
+}
+
+function getTextContent(message: AgentMessage): string {
+  if (!Array.isArray(message.content)) return typeof message.content === "string" ? message.content : "";
+  return message.content
+    .filter((block): block is TextContent => block.type === "text")
+    .map((block) => block.text)
+    .join("\n");
 }
 
 export default function (pi: ExtensionAPI) {
@@ -57,6 +70,14 @@ export default function (pi: ExtensionAPI) {
 
           pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
         } else if (msg.type === "text") {
+          // Echo user message to browser chat
+          const images = msg.images?.length ? msg.images : undefined;
+          server.pushUserChat(msg.text || "(image)", images);
+
+          // Show thinking indicator
+          server.pushThinkingStart();
+
+          // Forward to pi
           const content: Array<{ type: string; text?: string; source?: { type: string; mediaType: string; data: string } }> = [];
           if (msg.text) {
             content.push({ type: "text", text: msg.text });
@@ -155,6 +176,23 @@ export default function (pi: ExtensionAPI) {
   // Register the visual tool
   const visualTool = createVisualTool(() => state);
   pi.registerTool(visualTool);
+
+  // Capture assistant text responses and forward to browser
+  pi.on("turn_end", async (event) => {
+    if (!state.active || !state.server) return;
+    if (!isAssistantMessage(event.message)) return;
+
+    const text = getTextContent(event.message);
+    if (text.trim()) {
+      state.server.pushAssistantText(text);
+    }
+  });
+
+  // End thinking on turn start (covers edge cases)
+  pi.on("turn_start", async () => {
+    if (!state.active || !state.server) return;
+    state.server.pushThinkingEnd();
+  });
 
   // Cleanup on session shutdown (no ctx available)
   pi.on("session_shutdown", async () => {
