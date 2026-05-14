@@ -33,12 +33,13 @@ function scrollToBottom() {
 }
 
 function maybeScrollToBottom() {
-  // Capture whether user was near bottom BEFORE the new content reflows
   const nearBottom = isNearBottom();
   if (nearBottom) {
-    // Wait for DOM layout to update, then scroll
+    // Double rAF: first waits for pending layout, second for new height
     requestAnimationFrame(() => {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+      requestAnimationFrame(() => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      });
     });
   }
 }
@@ -77,7 +78,13 @@ function hideEmpty() {
 
 function renderMarkdown(text) {
   try {
-    if (window.marked) return marked.parse(text || "");
+    if (window.marked) {
+      if (!window._markedConfigured) {
+        marked.setOptions({ breaks: true, gfm: true });
+        window._markedConfigured = true;
+      }
+      return marked.parse(text || "");
+    }
     return escapeHtml(text || "").replace(/\n/g, "<br>");
   } catch {
     return escapeHtml(text || "").replace(/\n/g, "<br>");
