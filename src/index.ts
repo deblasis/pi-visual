@@ -68,7 +68,7 @@ export default function (pi: ExtensionAPI) {
       server.onInteraction = (msg: ClientMessage) => {
         try {
           const msgPreview = { ...msg };
-          if (msgPreview.images) msgPreview.images = [`[${msg.images.length} image(s)]`];
+          if (msgPreview.images) msgPreview.images = [`[${msgPreview.images?.length ?? 0} image(s)]`];
           console.log("[pi-visual] onInteraction:", JSON.stringify(msgPreview));
 
           if (msg.type === "interaction") {
