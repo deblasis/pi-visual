@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pi visual</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/shiki@1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
+  <header class="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-2">
+      <span class="text-lg font-semibold text-zinc-100">pi visual</span>
+      <span id="status-indicator" class="text-xs text-zinc-500">Connecting...</span>
+    </div>
+  </header>
+  <main id="blocks-container" class="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-4xl w-full mx-auto">
+    <div id="empty-state" class="flex items-center justify-center h-64 text-zinc-600 text-sm">
+      Waiting for content from pi...
+    </div>
+  </main>
+  <footer class="border-t border-zinc-800 bg-zinc-900/80 backdrop-blur px-4 py-3 sticky bottom-0">
+    <div class="max-w-4xl mx-auto flex gap-2 items-end">
+      <div class="flex-1 relative">
+        <textarea id="text-input" rows="1" placeholder="Type a message or paste an image..."
+          class="w-full bg-zinc-800 text-zinc-100 rounded-lg px-3 py-2 text-sm resize-none border border-zinc-700 focus:border-blue-500 focus:outline-none placeholder-zinc-500"></textarea>
+        <button id="paste-btn" class="absolute right-2 bottom-1.5 text-zinc-500 hover:text-zinc-300 text-xs" title="Paste image from clipboard">📎</button>
+      </div>
+      <button id="send-btn" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors self-end">
+        Send ▶
+      </button>
+    </div>
+    <div id="image-preview" class="max-w-4xl mx-auto mt-2 hidden">
+      <div class="inline-flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-400">
+        <span id="preview-filename">image.png</span>
+        <button id="remove-image" class="text-zinc-500 hover:text-red-400">✕</button>
+      </div>
+    </div>
+  </footer>
+  <div id="reconnect-overlay" class="hidden fixed inset-0 bg-zinc-950/80 flex items-center justify-center z-[100]">
+    <div class="text-center">
+      <div class="animate-spin text-4xl mb-4">⟳</div>
+      <p class="text-zinc-400 text-sm">Reconnecting to pi...</p>
+    </div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
