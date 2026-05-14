@@ -80,28 +80,32 @@ function renderMarkdown(text) {
   try {
     if (window.marked) {
       if (!window._markedConfigured) {
-        const renderer = new marked.Renderer();
-        renderer.code = function(code, lang) {
-          const language = lang || '';
-          let highlighted;
-          if (window.hljs && (language && hljs.getLanguage(language))) {
-            try {
-              highlighted = hljs.highlight(code, { language }).value;
-            } catch {
-              highlighted = escapeHtml(code);
+        marked.use({
+          breaks: true,
+          gfm: true,
+          renderer: {
+            code(code, lang) {
+              const language = lang || '';
+              let highlighted;
+              if (window.hljs && language && hljs.getLanguage(language)) {
+                try {
+                  highlighted = hljs.highlight(code, { language }).value;
+                } catch {
+                  highlighted = escapeHtml(code);
+                }
+              } else if (window.hljs) {
+                try {
+                  highlighted = hljs.highlightAuto(code).value;
+                } catch {
+                  highlighted = escapeHtml(code);
+                }
+              } else {
+                highlighted = escapeHtml(code);
+              }
+              return `<pre><code class="hljs language-${escapeHtml(language)}">${highlighted}</code></pre>`;
             }
-          } else if (window.hljs) {
-            try {
-              highlighted = hljs.highlightAuto(code).value;
-            } catch {
-              highlighted = escapeHtml(code);
-            }
-          } else {
-            highlighted = escapeHtml(code);
           }
-          return `<pre><code class="hljs language-${escapeHtml(language)}">${highlighted}</code></pre>`;
-        };
-        marked.setOptions({ breaks: true, gfm: true, renderer });
+        });
         window._markedConfigured = true;
       }
       return marked.parse(text || "");
