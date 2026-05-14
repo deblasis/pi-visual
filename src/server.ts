@@ -80,25 +80,25 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
     let attempts = 0;
     const maxAttempts = 5;
 
-    function tryListen() {
-      httpServer.listen(0, "127.0.0.1", () => {
-        const addr = httpServer.address();
-        if (addr && typeof addr === "object") {
-          resolve(serverObj(addr.port));
-        } else {
-          reject(new Error("Failed to get server port"));
-        }
-      });
+    httpServer.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE" && attempts < maxAttempts) {
+        attempts++;
+        httpServer.listen(0, "127.0.0.1", handleListen);
+      } else {
+        reject(err);
+      }
+    });
 
-      httpServer.on("error", (err: NodeJS.ErrnoException) => {
-        if (err.code === "EADDRINUSE" && attempts < maxAttempts) {
-          attempts++;
-          tryListen();
-        } else {
-          reject(err);
-        }
-      });
+    function handleListen() {
+      const addr = httpServer.address();
+      if (addr && typeof addr === "object") {
+        resolve(serverObj(addr.port));
+      } else {
+        reject(new Error("Failed to get server port"));
+      }
     }
+
+    httpServer.listen(0, "127.0.0.1", handleListen);
 
     const serverObj = (port: number): VisualServer => ({
       port,

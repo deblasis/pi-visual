@@ -67,12 +67,11 @@ function handleMessage(msg) {
   switch (msg.type) {
     case "connected": break;
     case "history":
-      if (msg.blocks?.length) { emptyState.classList.add("hidden"); msg.blocks.forEach(b => renderBlock(b)); }
+      if (msg.blocks?.length) { emptyState.classList.add("hidden"); (async () => { for (const b of msg.blocks) await renderBlock(b); })(); }
       break;
     case "blocks":
       emptyState.classList.add("hidden");
-      msg.blocks.forEach(b => renderBlock(b));
-      scrollToBottom();
+      (async () => { for (const b of msg.blocks) await renderBlock(b); scrollToBottom(); })();
       break;
     case "update": updateBlock(msg.blockId, msg.patch); break;
     case "clear":
