@@ -107,7 +107,8 @@ export default function (pi: ExtensionAPI) {
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[pi-visual] Failed to start: ${message}`);
+      const stack = err instanceof Error ? err.stack : "";
+      ctx.ui.notify(`[pi-visual] Error: ${message}\n${stack}`, "error");
       return false;
     }
   }
