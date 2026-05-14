@@ -24,10 +24,34 @@ interface VisualState {
 
 async function getPortlessInfo(port: number, cwd: string, sessionId: string): Promise<PortlessInfo | null> {
   const portlessDir = join(homedir(), ".portless");
+  debug.log("getPortlessInfo: checking", portlessDir, "exists:", existsSync(portlessDir));
   if (!existsSync(portlessDir)) return null;
 
   try {
-    const { RouteStore, parseHostname } = await import("portless");
+    debug.log("getPortlessInfo: attempting dynamic import of portless");
+    let portlessModule: any;
+    try {
+      portlessModule = await import("portless");
+    } catch {
+      // Fallback: try resolving from global node_modules
+      debug.log("getPortlessInfo: direct import failed, trying global resolution");
+      const { execSync } = await import("node:child_process");
+      try {
+        const globalPrefix = execSync("npm root -g", { encoding: "utf8" }).trim();
+        const globalPath = join(globalPrefix, "portless");
+        debug.log("getPortlessInfo: trying global path", globalPath, "exists:", existsSync(globalPath));
+        if (existsSync(globalPath)) {
+          portlessModule = await import(globalPath);
+        } else {
+          throw new Error(`portless not found at ${globalPath}`);
+        }
+      } catch (globalErr) {
+        debug.log("getPortlessInfo: global resolution also failed:", globalErr);
+        throw globalErr;
+      }
+    }
+    const { RouteStore, parseHostname } = portlessModule;
+    debug.log("getPortlessInfo: import succeeded, RouteStore:", !!RouteStore, "parseHostname:", !!parseHostname);
 
     const folder = cwd.split(/[/\\]/).pop() || "unknown";
     const sanitized = folder.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
@@ -173,14 +197,19 @@ export default function (pi: ExtensionAPI) {
       const sessionId = ctx.sessionManager.getSessionId();
       const portlessInfo = await getPortlessInfo(server.port, folderName, sessionId);
 
+      debug.log("portlessInfo result:", portlessInfo ? portlessInfo.url : "null", "hasUI:", ctx.hasUI);
       let usePortless = false;
       if (portlessInfo) {
         // Ask user if they want to use portless
         if (ctx.hasUI) {
+          debug.log("Asking user about portless...");
           usePortless = (await ctx.ui.confirm(
             "Portless detected",
             `Use portless URL? ${portlessInfo.url} (instead of ${server.url})`,
           )) ?? false;
+          debug.log("User chose portless:", usePortless);
+        } else {
+          debug.log("No UI available, skipping portless confirm");
         }
         if (usePortless) {
           state.portlessInfo = portlessInfo;
