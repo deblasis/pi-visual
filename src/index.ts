@@ -192,39 +192,43 @@ export default function (pi: ExtensionAPI) {
       // Activate the visual tool
       pi.setActiveTools([...pi.getActiveTools(), "visual"]);
 
-      // Try portless URL, fall back to localhost
-      const folderName = ctx.cwd.split(/[/\\]/).pop() || "unknown";
-      const sessionId = ctx.sessionManager.getSessionId();
-      const portlessInfo = await getPortlessInfo(server.port, folderName, sessionId);
-
-      debug.log("portlessInfo result:", portlessInfo ? portlessInfo.url : "null", "hasUI:", ctx.hasUI);
-      let usePortless = false;
-      if (portlessInfo) {
-        // Ask user if they want to use portless
-        if (ctx.hasUI) {
-          debug.log("Asking user about portless...");
-          usePortless = (await ctx.ui.confirm(
-            "Portless detected",
-            `Use portless URL? ${portlessInfo.url} (instead of ${server.url})`,
-          )) ?? false;
-          debug.log("User chose portless:", usePortless);
-        } else {
-          debug.log("No UI available, skipping portless confirm");
-        }
-        if (usePortless) {
-          state.portlessInfo = portlessInfo;
-        }
-      }
-
-      const browserUrl = usePortless ? portlessInfo!.url : server.url;
+      // Open browser immediately with localhost URL
       updateStatus(ctx, true);
-      debug.log("Opening browser to:", browserUrl);
+      debug.log("Opening browser to:", server.url);
 
       const openCmd =
         process.platform === "win32" ? "start"
         : process.platform === "darwin" ? "open"
         : "xdg-open";
-      pi.exec(openCmd, [browserUrl]);
+      pi.exec(openCmd, [server.url]);
+
+      // Detect portless asynchronously — ask user if found
+      const folderName = ctx.cwd.split(/[/\\]/).pop() || "unknown";
+      const sessionId = ctx.sessionManager.getSessionId();
+      getPortlessInfo(server.port, folderName, sessionId)
+        .then(async (portlessInfo) => {
+          if (!portlessInfo || !state.active) return;
+          debug.log("portlessInfo result:", portlessInfo.url, "hasUI:", ctx.hasUI);
+          let usePortless = false;
+          if (ctx.hasUI) {
+            debug.log("Asking user about portless...");
+            usePortless = (await ctx.ui.confirm(
+              "Portless detected",
+              `Use portless URL? ${portlessInfo.url} (instead of ${server.url})`,
+            )) ?? false;
+            debug.log("User chose portless:", usePortless);
+          } else {
+            debug.log("No UI available, skipping portless confirm");
+          }
+          if (usePortless) {
+            state.portlessInfo = portlessInfo;
+            updateStatus(ctx, true);
+            ctx.ui.notify(`Switched to portless: ${portlessInfo.url}`, "success");
+          }
+        })
+        .catch((err) => {
+          debug.warn("Portless detection failed:", err);
+        });
 
       return true;
     } catch (err) {
