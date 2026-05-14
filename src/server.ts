@@ -27,6 +27,10 @@ export interface VisualServer {
   pushAssistantText: (text: string) => void;
   pushThinkingStart: () => void;
   pushThinkingEnd: () => void;
+  pushWorkingStart: () => void;
+  pushWorkingEnd: () => void;
+  pushToolCallStart: (id: string, toolName: string, input: Record<string, unknown>) => void;
+  pushToolCallEnd: (id: string, result?: string, isError?: boolean) => void;
   onInteraction: ((msg: ClientMessage) => void) | null;
 }
 
@@ -35,6 +39,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
     const history: ChatItem[] = [];
     let activeWs: WebSocket | null = null;
     let thinkingId: string | null = null;
+    let workingId: string | null = null;
 
     function send(msg: object) {
       if (activeWs?.readyState === 1) activeWs.send(JSON.stringify(msg));
@@ -75,11 +80,20 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
       ws.on("message", (raw: Buffer) => {
         try {
           const msg: ClientMessage = JSON.parse(raw.toString());
+          console.log("[pi-visual] WS received:", JSON.stringify(msg).substring(0, 200));
           if (msg.type === "interaction" || msg.type === "text") {
-            serverObj.onInteraction?.(msg);
+            if (!serverObj.onInteraction) {
+              console.error("[pi-visual] ERROR: onInteraction is not set!");
+              send({ type: "assistant_chat", id: `error-${Date.now()}`, text: "[pi-visual] Error: onInteraction handler not registered" });
+              return;
+            }
+            serverObj.onInteraction(msg);
+            console.log("[pi-visual] onInteraction called successfully");
           }
-        } catch {
-          // Ignore malformed messages
+        } catch (err) {
+          console.error("[pi-visual] WS message error:", err);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          send({ type: "assistant_chat", id: `error-${Date.now()}`, text: `[pi-visual] Server error: ${errMsg}` });
         }
       });
 
@@ -142,10 +156,14 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         // End thinking if active
         if (thinkingId) {
           send({ type: "thinking_end", id: thinkingId });
-          // Remove thinking from history
           const idx = history.findIndex(h => h.id === thinkingId);
           if (idx >= 0) history.splice(idx, 1);
           thinkingId = null;
+        }
+        // End working if active
+        if (workingId) {
+          send({ type: "working_end" });
+          workingId = null;
         }
 
         const id = `assistant-${Date.now()}`;
@@ -166,6 +184,35 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         const idx = history.findIndex(h => h.id === thinkingId);
         if (idx >= 0) history.splice(idx, 1);
         thinkingId = null;
+      },
+      pushWorkingStart() {
+        if (workingId) return;
+        workingId = `working-${Date.now()}`;
+        send({ type: "working_start", id: workingId });
+      },
+      pushWorkingEnd() {
+        if (!workingId) return;
+        send({ type: "working_end" });
+        workingId = null;
+      },
+      pushToolCallStart(id: string, toolName: string, input: Record<string, unknown>) {
+        // End working indicator if active
+        if (workingId) {
+          send({ type: "working_end" });
+          workingId = null;
+        }
+        const item: ChatItem = { type: "tool_call", id, toolName, input };
+        history.push(item);
+        send({ type: "tool_call_start", id, toolName, input });
+      },
+      pushToolCallEnd(id: string, result?: string, isError?: boolean) {
+        // Update history item
+        const item = history.find(h => h.type === "tool_call" && h.id === id);
+        if (item && item.type === "tool_call") {
+          item.result = result;
+          item.isError = isError;
+        }
+        send({ type: "tool_call_end", id, result, isError });
       },
       onInteraction: null,
     });

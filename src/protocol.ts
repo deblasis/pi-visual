@@ -55,7 +55,16 @@ export interface BlockChatItem {
   block: Block;
 }
 
-export type ChatItem = UserChatItem | AssistantChatItem | ThinkingItem | BlockChatItem;
+export interface ToolCallChatItem {
+  type: "tool_call";
+  id: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  result?: string;
+  isError?: boolean;
+}
+
+export type ChatItem = UserChatItem | AssistantChatItem | ThinkingItem | BlockChatItem | ToolCallChatItem;
 
 // ─── Server → Browser messages ───
 
@@ -103,6 +112,29 @@ export interface ClearMessage {
   type: "clear";
 }
 
+export interface ToolCallStartMessage {
+  type: "tool_call_start";
+  id: string;
+  toolName: string;
+  input: Record<string, unknown>;
+}
+
+export interface ToolCallEndMessage {
+  type: "tool_call_end";
+  id: string;
+  result?: string;
+  isError?: boolean;
+}
+
+export interface WorkingStartMessage {
+  type: "working_start";
+  id: string;
+}
+
+export interface WorkingEndMessage {
+  type: "working_end";
+}
+
 export type ServerMessage =
   | HistoryMessage
   | BlocksMessage
@@ -110,6 +142,10 @@ export type ServerMessage =
   | AssistantChatMessage
   | ThinkingStartMessage
   | ThinkingEndMessage
+  | ToolCallStartMessage
+  | ToolCallEndMessage
+  | WorkingStartMessage
+  | WorkingEndMessage
   | UpdateMessage
   | ClearMessage;
 

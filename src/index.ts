@@ -35,9 +35,10 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.setStatus("pi-visual", undefined);
       return;
     }
+    const url = state.server?.url || "";
     ctx.ui.setStatus(
       "pi-visual",
-      connected ? "visual: connected ●" : "visual: disconnected ○",
+      connected ? `pi-visual: connected ● ${url}` : "pi-visual: disconnected ○",
     );
   }
 
@@ -58,6 +59,8 @@ export default function (pi: ExtensionAPI) {
 
       // Handle interactions from browser
       server.onInteraction = (msg: ClientMessage) => {
+        console.log("[pi-visual] onInteraction called:", JSON.stringify(msg).substring(0, 200));
+
         if (msg.type === "interaction") {
           const actionText =
             msg.action === "select"
@@ -68,27 +71,44 @@ export default function (pi: ExtensionAPI) {
                   ? `Submitted: ${JSON.stringify(msg.values)}`
                   : `Interacted: ${msg.blockId}`;
 
+          console.log("[pi-visual] Sending interaction as steer:", actionText);
           pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
+          console.log("[pi-visual] sendUserMessage (interaction) called OK");
         } else if (msg.type === "text") {
-          // Echo user message to browser chat
-          const images = msg.images?.length ? msg.images : undefined;
-          server.pushUserChat(msg.text || "(image)", images);
+          try {
+            // Echo user message to browser chat
+            const images = msg.images?.length ? msg.images : undefined;
+            server.pushUserChat(msg.text || "(image)", images);
 
-          // Show thinking indicator
-          server.pushThinkingStart();
+            // Show thinking indicator
+            server.pushThinkingStart();
 
-          // Forward to pi
-          const content: Array<{ type: string; text?: string; source?: { type: string; mediaType: string; data: string } }> = [];
-          if (msg.text) {
-            content.push({ type: "text", text: msg.text });
-          }
-          if (msg.images?.length) {
-            for (const img of msg.images) {
-              content.push({ type: "image", source: { type: "base64", mediaType: img.mediaType, data: img.data } });
+            // Forward to pi
+            if (msg.images?.length) {
+              // Multi-modal: text + images using proper TextContent | ImageContent format
+              const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [];
+              if (msg.text) {
+                content.push({ type: "text", text: msg.text });
+              }
+              for (const img of msg.images) {
+                content.push({ type: "image", data: img.data, mimeType: img.mediaType });
+              }
+              console.log("[pi-visual] Sending multimodal message, length:", content.length);
+              pi.sendUserMessage(content);
+              console.log("[pi-visual] sendUserMessage (multimodal) called OK");
+            } else if (msg.text) {
+              // Text-only: send as plain string
+              console.log("[pi-visual] Sending text message:", msg.text.substring(0, 100));
+              pi.sendUserMessage(msg.text);
+              console.log("[pi-visual] sendUserMessage (text) called OK");
+            } else {
+              console.warn("[pi-visual] No text or images to send");
             }
-          }
-          if (content.length > 0) {
-            pi.sendUserMessage(content);
+          } catch (err) {
+            console.error("[pi-visual] Error forwarding message:", err);
+            server.pushThinkingEnd();
+            const errMsg = err instanceof Error ? err.message : String(err);
+            server.pushAssistantText(`[pi-visual] Error forwarding message: ${errMsg}`);
           }
         }
       };
@@ -179,20 +199,44 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool(visualTool);
 
   // Capture assistant text responses and forward to browser
+  pi.on("turn_start", async () => {
+    if (!state.active || !state.server) return;
+    console.log("[pi-visual] turn_start");
+    state.server.pushThinkingEnd();
+    state.server.pushWorkingStart();
+  });
+
+  pi.on("tool_execution_start", async (event) => {
+    if (!state.active || !state.server) return;
+    console.log("[pi-visual] tool_execution_start:", event.toolName, event.toolCallId);
+    state.server.pushToolCallStart(event.toolCallId, event.toolName, event.args ?? {});
+  });
+
+  pi.on("tool_execution_end", async (event) => {
+    if (!state.active || !state.server) return;
+    console.log("[pi-visual] tool_execution_end:", event.toolName, event.toolCallId, "isError:", event.isError);
+    const result = event.result;
+    let resultText = "";
+    if (result?.content && Array.isArray(result.content)) {
+      resultText = result.content
+        .filter((c: { type: string }) => c.type === "text")
+        .map((c: { text: string }) => c.text)
+        .join("\n");
+    }
+    state.server.pushToolCallEnd(event.toolCallId, resultText || undefined, event.isError);
+    state.server.pushWorkingStart();
+  });
+
   pi.on("turn_end", async (event) => {
     if (!state.active || !state.server) return;
+    console.log("[pi-visual] turn_end, role:", event.message.role);
+    state.server.pushWorkingEnd();
     if (!isAssistantMessage(event.message)) return;
 
     const text = getTextContent(event.message);
     if (text.trim()) {
       state.server.pushAssistantText(text);
     }
-  });
-
-  // End thinking on turn start (covers edge cases)
-  pi.on("turn_start", async () => {
-    if (!state.active || !state.server) return;
-    state.server.pushThinkingEnd();
   });
 
   // Cleanup on session shutdown (no ctx available)

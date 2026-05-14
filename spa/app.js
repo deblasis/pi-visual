@@ -13,12 +13,30 @@ const previewFilename = document.getElementById("preview-filename");
 const removeImageBtn = document.getElementById("remove-image");
 const reconnectOverlay = document.getElementById("reconnect-overlay");
 const dropOverlay = document.getElementById("drop-overlay");
+const toggleToolsBtn = document.getElementById("toggle-tools-btn");
 
 let ws = null;
 let reconnectAttempts = 0;
 const MAX_DELAY = 30000;
 let pendingImage = null;
 let currentThinkingEl = null;
+let currentWorkingEl = null;
+let toolsHidden = false;
+
+// ─── Smart scroll ───
+function isNearBottom(threshold = 120) {
+  return chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < threshold;
+}
+
+function scrollToBottom() {
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function maybeScrollToBottom() {
+  if (isNearBottom()) {
+    scrollToBottom();
+  }
+}
 
 // ─── Helpers ───
 function escapeHtml(s) {
@@ -42,8 +60,6 @@ function sendTellMore(label) { sendToServer({ type: "text", text: "Tell me more 
 function sendProsCons(opts) {
   sendToServer({ type: "text", text: "Compare these options with pros and cons: " + opts.map(o => o.title || o.value).join(", ") });
 }
-
-function scrollToBottom() { chatContainer.scrollTop = chatContainer.scrollHeight; }
 
 function hideEmpty() {
   if (emptyState && !emptyState.classList.contains("hidden")) {
@@ -89,29 +105,29 @@ function appendUserMessage(id, text, images) {
   }
   wrap.appendChild(bubble);
   chatContainer.appendChild(wrap);
-  scrollToBottom();
+  maybeScrollToBottom();
 }
 
 function appendAssistantMessage(id, text) {
   hideEmpty();
-  // Remove thinking indicator if present
   removeThinking();
+  removeWorking();
   const wrap = document.createElement("div");
   wrap.id = id;
   wrap.className = "msg-assistant";
   const bubble = document.createElement("div");
   bubble.className = "msg-bubble text-sm text-zinc-200";
   bubble.innerHTML = renderMarkdown(text);
-  // Sanitize scripts
   bubble.querySelectorAll("script").forEach(s => s.remove());
   wrap.appendChild(bubble);
   chatContainer.appendChild(wrap);
-  scrollToBottom();
+  maybeScrollToBottom();
 }
 
 function showThinking(id) {
   hideEmpty();
-  if (currentThinkingEl) return; // Already showing
+  if (currentThinkingEl) return;
+  removeWorking();
   const wrap = document.createElement("div");
   wrap.id = id;
   wrap.className = "msg-thinking";
@@ -121,7 +137,7 @@ function showThinking(id) {
   wrap.appendChild(bubble);
   chatContainer.appendChild(wrap);
   currentThinkingEl = wrap;
-  scrollToBottom();
+  maybeScrollToBottom();
 }
 
 function removeThinking() {
@@ -129,6 +145,155 @@ function removeThinking() {
     currentThinkingEl.remove();
     currentThinkingEl = null;
   }
+}
+
+function showWorking(id) {
+  hideEmpty();
+  if (currentWorkingEl) return;
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-working";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  bubble.innerHTML = `<span class="text-xs text-zinc-500">working</span><div class="thinking-dots"><span></span><span></span><span></span></div>`;
+  wrap.appendChild(bubble);
+  chatContainer.appendChild(wrap);
+  currentWorkingEl = wrap;
+  maybeScrollToBottom();
+}
+
+function removeWorking() {
+  if (currentWorkingEl) {
+    currentWorkingEl.remove();
+    currentWorkingEl = null;
+  }
+}
+
+// ─── Tool call rendering ───
+
+const TOOL_ICONS = {
+  bash: "⚡", read: "📄", edit: "✏️", write: "📝",
+  grep: "🔍", find: "🔎", ls: "📁", visual: "🎨",
+};
+const TOOL_COLORS = {
+  bash: "#eab308", read: "#3b82f6", edit: "#22c55e", write: "#22c55e",
+  grep: "#a855f7", find: "#a855f7", ls: "#a855f7", visual: "#ec4899",
+};
+
+function getToolIcon(name) { return TOOL_ICONS[name] || "🔧"; }
+function getToolColor(name) { return TOOL_COLORS[name] || "#6b7280"; }
+
+function getToolBrief(name, input) {
+  switch (name) {
+    case "bash": return input.command || "";
+    case "read": return input.path || "";
+    case "edit": return input.path || "";
+    case "write": return input.path || "";
+    case "grep": return input.pattern ? `"${input.pattern}"` : "";
+    case "find": return input.path || "";
+    case "ls": return input.path || "";
+    case "visual": {
+      const blocks = input.blocks || [];
+      return `${blocks.length} block(s): ${blocks.map(b => b.type).join(", ")}`;
+    }
+    default: return "";
+  }
+}
+
+function formatToolInput(name, input) {
+  switch (name) {
+    case "bash": return `$ ${input.command || ""}`;
+    case "read": return input.path || "";
+    case "edit": return `${input.path || ""}`;
+    case "write": return `${input.path || ""}`;
+    case "grep": return `pattern: ${input.pattern || ""}${input.path ? `\npath: ${input.path}` : ""}`;
+    case "find": return input.path || "";
+    case "ls": return input.path || "";
+    default: return JSON.stringify(input, null, 2);
+  }
+}
+
+function appendToolCallStart(id, toolName, input) {
+  hideEmpty();
+  removeWorking();
+  const color = getToolColor(toolName);
+  const icon = getToolIcon(toolName);
+  const brief = getToolBrief(toolName, toolName === "visual" ? input : input);
+
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "tool-call-card tool-running";
+  wrap.style.borderLeftColor = color;
+
+  const header = document.createElement("div");
+  header.className = "tool-call-header";
+  header.innerHTML = `
+    <span class="tool-icon">${icon}</span>
+    <span class="tool-name" style="color:${color}">${escapeHtml(toolName)}</span>
+    <span class="tool-brief">${escapeHtml(brief)}</span>
+    <span class="tool-status running">●</span>
+    <span class="tool-toggle">▼</span>
+  `;
+  header.onclick = () => toggleToolCall(wrap);
+
+  const body = document.createElement("div");
+  body.className = "tool-call-body";
+  body.innerHTML = `
+    <div class="tool-section">
+      <div class="tool-label">Input</div>
+      <pre class="tool-pre">${escapeHtml(formatToolInput(toolName, input))}</pre>
+    </div>
+    <div class="tool-section tool-result-section"></div>
+  `;
+
+  wrap.appendChild(header);
+  wrap.appendChild(body);
+  if (toolsHidden) wrap.classList.add("tools-hidden");
+  chatContainer.appendChild(wrap);
+  maybeScrollToBottom();
+}
+
+function updateToolCallEnd(id, result, isError) {
+  const wrap = document.getElementById(id);
+  if (!wrap) return;
+
+  // Update status indicator
+  wrap.classList.remove("tool-running");
+  if (isError) {
+    wrap.classList.add("tool-error");
+  } else {
+    wrap.classList.add("tool-success");
+  }
+
+  const status = wrap.querySelector(".tool-status");
+  if (status) {
+    status.classList.remove("running");
+    status.classList.add(isError ? "error" : "success");
+    status.textContent = isError ? "✗" : "✓";
+  }
+
+  // Update toggle arrow
+  const toggle = wrap.querySelector(".tool-toggle");
+  if (toggle) toggle.textContent = "▼";
+
+  // Fill result section
+  const resultSection = wrap.querySelector(".tool-result-section");
+  if (resultSection && result !== undefined && result !== "") {
+    const truncated = result.length > 2000 ? result.substring(0, 2000) + "\n... (truncated)" : result;
+    resultSection.innerHTML = `
+      <div class="tool-label">${isError ? "Error" : "Output"}</div>
+      <pre class="tool-pre ${isError ? "tool-error-text" : ""}">${escapeHtml(truncated)}</pre>
+    `;
+  }
+}
+
+function toggleToolCall(wrap) {
+  const body = wrap.querySelector(".tool-call-body");
+  const toggle = wrap.querySelector(".tool-toggle");
+  if (!body) return;
+  const collapsed = !body.classList.contains("collapsed");
+  body.classList.toggle("collapsed", collapsed);
+  if (toggle) toggle.textContent = collapsed ? "▶" : "▼";
 }
 
 // ─── WebSocket ───
@@ -164,6 +329,10 @@ function handleMessage(msg) {
             else if (item.type === "assistant_chat") appendAssistantMessage(item.id, item.text);
             else if (item.type === "block") await renderBlock(item.block);
             else if (item.type === "thinking") showThinking(item.id);
+            else if (item.type === "tool_call") {
+              appendToolCallStart(item.id, item.toolName, item.input);
+              if (item.result !== undefined) updateToolCallEnd(item.id, item.result, item.isError);
+            }
           }
           scrollToBottom();
         })();
@@ -181,10 +350,23 @@ function handleMessage(msg) {
     case "thinking_end":
       removeThinking();
       break;
+    case "working_start":
+      showWorking(msg.id);
+      break;
+    case "working_end":
+      removeWorking();
+      break;
+    case "tool_call_start":
+      appendToolCallStart(msg.id, msg.toolName, msg.input);
+      break;
+    case "tool_call_end":
+      updateToolCallEnd(msg.id, msg.result, msg.isError);
+      maybeScrollToBottom();
+      break;
     case "blocks":
       hideEmpty();
       removeThinking();
-      (async () => { for (const b of msg.blocks) await renderBlock(b); scrollToBottom(); })();
+      (async () => { for (const b of msg.blocks) await renderBlock(b); maybeScrollToBottom(); })();
       break;
     case "update": updateBlock(msg.blockId, msg.patch); break;
     case "clear":
@@ -192,6 +374,7 @@ function handleMessage(msg) {
       chatContainer.appendChild(emptyState);
       emptyState.classList.remove("hidden");
       currentThinkingEl = null;
+      currentWorkingEl = null;
       break;
   }
 }
@@ -644,6 +827,17 @@ footer.addEventListener("drop", e => {
 
 function clearPendingImage() { pendingImage = null; imagePreview.classList.add("hidden"); }
 removeImageBtn.addEventListener("click", clearPendingImage);
+
+// ─── Toggle tools visibility ───
+if (toggleToolsBtn) {
+  toggleToolsBtn.addEventListener("click", () => {
+    toolsHidden = !toolsHidden;
+    toggleToolsBtn.textContent = toolsHidden ? "Show Tools" : "Hide Tools";
+    document.querySelectorAll(".tool-call-card").forEach(el => {
+      el.classList.toggle("tools-hidden", toolsHidden);
+    });
+  });
+}
 
 // ─── Start ───
 connect();

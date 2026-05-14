@@ -45,6 +45,21 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Working indicator */
+.msg-working {
+  display: flex;
+  justify-content: flex-start;
+}
+.msg-working .msg-bubble {
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 .thinking-dots span {
   display: inline-block;
   width: 6px; height: 6px;
@@ -168,4 +183,96 @@
 .block-chat-item > div {
   max-width: 100%;
   width: 100%;
+}
+
+/* Tool call cards */
+.tool-call-card {
+  border-left: 3px solid #6b7280;
+  background: rgba(24, 24, 27, 0.5);
+  border-radius: 0.5rem;
+  margin: 0.375rem 0;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.tool-call-card.tools-hidden {
+  display: none;
+}
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.8rem;
+}
+.tool-call-header:hover {
+  background: rgba(39, 39, 42, 0.4);
+}
+.tool-icon { font-size: 0.85rem; }
+.tool-name { font-weight: 600; font-size: 0.8rem; }
+.tool-brief {
+  color: #a1a1aa;
+  font-family: monospace;
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.tool-status {
+  font-size: 0.65rem;
+}
+.tool-status.running {
+  color: #eab308;
+  animation: pulse 1s infinite;
+}
+.tool-status.success { color: #4ade80; }
+.tool-status.error { color: #f87171; }
+.tool-toggle {
+  color: #71717a;
+  font-size: 0.65rem;
+  margin-left: 0.25rem;
+}
+.tool-call-body {
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid rgba(39, 39, 42, 0.5);
+}
+.tool-call-body.collapsed {
+  display: none;
+}
+.tool-section {
+  margin-top: 0.5rem;
+}
+.tool-label {
+  font-size: 0.7rem;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+.tool-pre {
+  font-size: 0.75rem;
+  color: #d4d4d8;
+  background: #09090b;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.tool-error-text {
+  color: #fca5a5;
+}
+.tool-call-card.tool-error {
+  border-left-color: #ef4444 !important;
+}
+.tool-call-card.tool-success {
+  opacity: 0.85;
+}
+.tool-call-card.tool-running {
+  opacity: 1;
 }
