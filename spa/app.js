@@ -19,6 +19,7 @@ const statusModel = document.getElementById("status-model");
 const statusCwd = document.getElementById("status-cwd");
 const statusSession = document.getElementById("status-session");
 const acDropdown = document.getElementById("autocomplete-dropdown");
+const themeToggle = document.getElementById("theme-toggle");
 
 let ws = null;
 let reconnectAttempts = 0;
@@ -1223,6 +1224,82 @@ if (toggleToolsBtn) {
     });
   });
 }
+
+// ─── Theme Management ───
+const THEMES = ['dark', 'light', 'system'];
+const THEME_SVGS = {
+  dark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+  light: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+  system: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+};
+let currentTheme = localStorage.getItem('pi-theme') || 'system';
+
+function getSystemTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme) {
+  const effective = theme === 'system' ? getSystemTheme() : theme;
+  document.documentElement.setAttribute('data-theme', effective);
+  // Toggle highlight.js themes
+  const darkSheet = document.getElementById('hljs-dark');
+  const lightSheet = document.getElementById('hljs-light');
+  if (darkSheet) darkSheet.disabled = effective === 'light';
+  if (lightSheet) lightSheet.disabled = effective === 'dark';
+}
+
+function updateThemeIcon() {
+  if (!themeToggle) return;
+  themeToggle.innerHTML = THEME_SVGS[currentTheme];
+  themeToggle.title = `Theme: ${currentTheme} (click to cycle)`;
+}
+
+function circularRevealTransition(x, y, newTheme) {
+  // Capture the OLD background color
+  const oldBg = getComputedStyle(document.body).backgroundColor;
+  // Max radius to cover entire viewport from click point
+  const maxR = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y)
+  ) + 20;
+
+  // Overlay showing old theme (sits on top, will shrink away)
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;pointer-events:none;background:${oldBg}`;
+  document.documentElement.appendChild(overlay);
+
+  // Apply new theme underneath
+  currentTheme = newTheme;
+  localStorage.setItem('pi-theme', newTheme);
+  applyTheme(newTheme);
+  updateThemeIcon();
+
+  // Animate overlay shrinking from click point → reveals new theme expanding outward
+  overlay.animate([
+    { clipPath: `circle(100% at ${x}px ${y}px)` },
+    { clipPath: `circle(0px at ${x}px ${y}px)` }
+  ], {
+    duration: 450,
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  }).onfinish = () => overlay.remove();
+}
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', (e) => {
+    const idx = THEMES.indexOf(currentTheme);
+    const next = THEMES[(idx + 1) % THEMES.length];
+    circularRevealTransition(e.clientX, e.clientY, next);
+  });
+}
+
+// Listen for system preference changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (currentTheme === 'system') applyTheme('system');
+});
+
+// Initialize theme
+applyTheme(currentTheme);
+updateThemeIcon();
 
 // ─── Start ───
 initVirtualization();

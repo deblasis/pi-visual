@@ -370,3 +370,113 @@
 [data-virtual-tombstone] {
   /* Uncomment for debugging: outline: 1px dashed rgba(255,255,0,0.2); */
 }
+
+/* ============================================
+   Light Theme
+   ============================================ */
+
+/* --- Theme toggle button --- */
+.theme-btn {
+  color: #a1a1aa;
+  background: rgba(39,39,42,0.5);
+  border: 1px solid #3f3f46;
+}
+.theme-btn:hover {
+  color: #e4e4e7;
+  border-color: #52525b;
+}
+
+/* --- Structural Tailwind overrides --- */
+[data-theme="light"] .bg-zinc-950 { background-color: #fafafa !important; }
+[data-theme="light"] .bg-zinc-900 { background-color: #ffffff !important; }
+[data-theme="light"] .bg-zinc-800 { background-color: #f4f4f5 !important; }
+[data-theme="light"] .text-zinc-100 { color: #18181b !important; }
+[data-theme="light"] .text-zinc-200 { color: #27272a !important; }
+[data-theme="light"] .text-zinc-300 { color: #3f3f46 !important; }
+[data-theme="light"] .text-zinc-400 { color: #71717a !important; }
+[data-theme="light"] .border-zinc-800 { border-color: #e4e4e7 !important; }
+[data-theme="light"] .border-zinc-700 { border-color: #d4d4d8 !important; }
+[data-theme="light"] .placeholder-zinc-500::placeholder { color: #a1a1aa !important; }
+
+/* --- Theme toggle in light mode --- */
+[data-theme="light"] .theme-btn {
+  color: #52525b;
+  background: rgba(244,244,245,0.8);
+  border-color: #d4d4d8;
+}
+[data-theme="light"] .theme-btn:hover {
+  color: #18181b;
+  border-color: #a1a1aa;
+}
+
+/* --- Chat bubbles --- */
+[data-theme="light"] .msg-assistant .msg-bubble { background: #f4f4f5; border-color: #d4d4d8; color: #3f3f46; }
+[data-theme="light"] .msg-assistant .msg-bubble strong { color: #18181b; }
+[data-theme="light"] .msg-assistant .msg-bubble a { color: #2563eb; }
+[data-theme="light"] .msg-assistant .msg-bubble pre { background: #e4e4e7; border-color: #d4d4d8; }
+[data-theme="light"] .msg-assistant .msg-bubble code { background: #e4e4e7; }
+[data-theme="light"] .msg-assistant .msg-bubble pre code { background: none; }
+[data-theme="light"] .msg-assistant .msg-bubble blockquote { border-left-color: #d4d4d8; color: #71717a; }
+
+[data-theme="light"] .msg-terminal .msg-bubble { background: #f4f4f5; border-color: #d4d4d8; }
+[data-theme="light"] .msg-terminal-label { background: #a1a1aa; color: #fff; }
+
+[data-theme="light"] .msg-thinking .msg-bubble,
+[data-theme="light"] .msg-working .msg-bubble { background: #f4f4f5; border-color: #d4d4d8; }
+[data-theme="light"] .thinking-dots span { background: #a1a1aa; }
+
+/* --- Cards --- */
+[data-theme="light"] .block-card { background: #ffffff; border-color: #e4e4e7; }
+[data-theme="light"] .block-card:hover { border-color: #d4d4d8; }
+[data-theme="light"] .choice-card { background: #ffffff; border-color: #e4e4e7; }
+[data-theme="light"] .choice-card:hover { border-color: #3b82f6; background: rgba(244,244,245,0.8); }
+[data-theme="light"] .choice-card.selected { background: rgba(219,234,254,0.5); }
+
+/* --- Forms --- */
+[data-theme="light"] .form-input,
+[data-theme="light"] .form-select { background: #ffffff; color: #18181b; border-color: #d4d4d8; }
+
+/* --- Checklist --- */
+[data-theme="light"] .checklist-item:hover { background: rgba(244,244,245,0.8); }
+
+/* --- Timeline --- */
+[data-theme="light"] .timeline-event { border-left-color: #d4d4d8; }
+
+/* --- Tree --- */
+[data-theme="light"] .tree-node { border-left-color: #e4e4e7; }
+
+/* --- Table --- */
+[data-theme="light"] .data-table th { color: #71717a; border-bottom-color: #e4e4e7; }
+[data-theme="light"] .data-table td { border-bottom-color: #f4f4f5; }
+[data-theme="light"] .data-table tr:hover td { background: rgba(244,244,245,0.5); }
+
+/* --- Steps --- */
+[data-theme="light"] .step-indicator.pending { background: #f4f4f5; border-color: #d4d4d8; }
+
+/* --- Tool calls --- */
+[data-theme="light"] .tool-call-card { background: rgba(255,255,255,0.8); }
+[data-theme="light"] .tool-call-header:hover { background: rgba(244,244,245,0.6); }
+[data-theme="light"] .tool-pre { background: #f4f4f5; color: #3f3f46; }
+
+/* --- Autocomplete --- */
+[data-theme="light"] #autocomplete-dropdown { background: #ffffff; border-color: #d4d4d8; }
+[data-theme="light"] .ac-item:hover,
+[data-theme="light"] .ac-item.active { background: rgba(59,130,246,0.08); }
+
+/* --- Scrollbar --- */
+[data-theme="light"] #chat-container::-webkit-scrollbar-track { background: #fafafa; }
+[data-theme="light"] #chat-container::-webkit-scrollbar-thumb { background: #d4d4d8; }
+
+/* --- Overlays --- */
+[data-theme="light"] #reconnect-overlay { background: rgba(250,250,250,0.8); }
+[data-theme="light"] #image-preview > div { background: #f4f4f5; }
+
+/* --- SVG graph overrides (D3) --- */
+[data-theme="light"] .graph-container svg rect { fill: #ffffff; }
+[data-theme="light"] .graph-container svg circle { fill: #ffffff; }
+[data-theme="light"] .graph-container svg line { stroke: #d4d4d8; }
+[data-theme="light"] .graph-container svg path { stroke: #d4d4d8; }
+[data-theme="light"] .graph-container svg text { fill: #18181b; }
+
+/* --- Markdown prose --- */
+[data-theme="light"] .prose-invert { --tw-prose-body: #3f3f46; --tw-prose-headings: #18181b; --tw-prose-links: #2563eb; }
