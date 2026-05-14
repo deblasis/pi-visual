@@ -1024,6 +1024,175 @@ R.svg = (c, _id, cls) => {
   d.appendChild(iframe); return d;
 };
 
+// ─── Pure renderers (for virtualization) ───
+
+renderers.user_chat = (data, id) => {
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-user";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  if (data.images?.length) {
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "msg-images";
+    for (const img of data.images) {
+      const imgEl = document.createElement("img");
+      imgEl.src = `data:${img.mediaType};base64,${img.data}`;
+      imgEl.alt = "Uploaded image";
+      imgDiv.appendChild(imgEl);
+    }
+    bubble.appendChild(imgDiv);
+  }
+  if (data.text) {
+    const p = document.createElement("p");
+    p.className = "text-sm text-white";
+    p.textContent = data.text;
+    bubble.appendChild(p);
+  }
+  wrap.appendChild(bubble);
+  return wrap;
+};
+
+renderers.assistant_chat = (data, id) => {
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-assistant";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble text-sm text-zinc-200";
+  if (data.images?.length) {
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "msg-images";
+    for (const img of data.images) {
+      const imgEl = document.createElement("img");
+      imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+      imgEl.alt = "Image";
+      imgDiv.appendChild(imgEl);
+    }
+    bubble.appendChild(imgDiv);
+  }
+  if (data.text) {
+    const textDiv = document.createElement("div");
+    textDiv.innerHTML = renderMarkdown(data.text);
+    textDiv.querySelectorAll("script").forEach(s => s.remove());
+    bubble.appendChild(textDiv);
+  }
+  wrap.appendChild(bubble);
+  return wrap;
+};
+
+renderers.terminal_chat = (data, id) => {
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "msg-terminal";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  const label = document.createElement("span");
+  label.className = "msg-terminal-label";
+  label.textContent = "terminal";
+  bubble.appendChild(label);
+  if (data.images?.length) {
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "msg-images";
+    for (const img of data.images) {
+      const imgEl = document.createElement("img");
+      imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+      imgEl.alt = "Image";
+      imgDiv.appendChild(imgEl);
+    }
+    bubble.appendChild(imgDiv);
+  }
+  if (data.text) {
+    const p = document.createElement("p");
+    p.className = "text-sm text-zinc-200";
+    p.textContent = data.text;
+    bubble.appendChild(p);
+  }
+  wrap.appendChild(bubble);
+  return wrap;
+};
+
+renderers.block = (data, id) => {
+  const block = data.block;
+  const wrap = document.createElement("div");
+  wrap.id = block.id;
+  wrap.className = "block-chat-item";
+  const inner = document.createElement("div");
+  const cls = block.style || "";
+  try {
+    const r = R[block.type];
+    if (r) { const c = r(block.content, block.id, cls); if (c) inner.appendChild(c); }
+    else {
+      inner.innerHTML = `<div class="block-card ${cls}"><p class="text-zinc-500 text-xs mb-2">Unknown block type: ${escapeHtml(block.type)}</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
+    }
+  } catch {
+    inner.innerHTML = `<div class="block-card border-red-900 ${cls}"><p class="text-red-400 text-xs mb-2">⚠ Rendering error</p><pre class="text-xs text-zinc-600 overflow-auto">${escapeHtml(JSON.stringify(block.content, null, 2))}</pre></div>`;
+  }
+  wrap.appendChild(inner);
+  return wrap;
+};
+
+renderers.tool_call = (data, id) => {
+  const { toolName, input, result, isError } = data;
+  const color = getToolColor(toolName);
+  const icon = getToolIcon(toolName);
+  const brief = getToolBrief(toolName, toolName === "visual" ? input : input);
+
+  const wrap = document.createElement("div");
+  wrap.id = id;
+  wrap.className = "tool-call-card" + (result === undefined ? " tool-running" : (isError ? " tool-error" : " tool-success"));
+  wrap.style.borderLeftColor = color;
+
+  const header = document.createElement("div");
+  header.className = "tool-call-header";
+  const statusClass = result === undefined ? "running" : (isError ? "error" : "success");
+  const statusText = result === undefined ? "●" : (isError ? "✗" : "✓");
+  header.innerHTML = `
+    <span class="tool-icon">${icon}</span>
+    <span class="tool-name" style="color:${color}">${escapeHtml(toolName)}</span>
+    <span class="tool-brief">${escapeHtml(brief)}</span>
+    <span class="tool-status ${statusClass}">${statusText}</span>
+    <span class="tool-toggle">▼</span>
+  `;
+  header.onclick = () => toggleToolCall(wrap);
+
+  let inputHtml;
+  const rawInput = formatToolInput(toolName, input);
+  if (toolName === "bash") inputHtml = highlightShell(rawInput);
+  else if (["read", "edit", "write", "find", "ls"].includes(toolName)) inputHtml = highlightPath(rawInput);
+  else inputHtml = escapeHtml(rawInput);
+
+  const body = document.createElement("div");
+  body.className = "tool-call-body";
+  let bodyHtml = `
+    <div class="tool-section">
+      <div class="tool-label">Input</div>
+      <pre class="tool-pre">${inputHtml}</pre>
+    </div>
+  `;
+  if (result !== undefined && result !== "") {
+    const truncated = result.length > 2000 ? result.substring(0, 2000) + "\n... (truncated)" : result;
+    bodyHtml += `
+      <div class="tool-section tool-result-section">
+        <div class="tool-label">${isError ? "Error" : "Output"}</div>
+        <pre class="tool-pre ${isError ? "tool-error-text" : ""}">${escapeHtml(truncated)}</pre>
+      </div>
+    `;
+  } else {
+    bodyHtml += `<div class="tool-section tool-result-section"></div>`;
+  }
+  body.innerHTML = bodyHtml;
+
+  wrap.appendChild(header);
+  wrap.appendChild(body);
+  if (toolsHidden) {
+    const bd = wrap.querySelector(".tool-call-body");
+    const tg = wrap.querySelector(".tool-toggle");
+    if (bd) bd.classList.add("collapsed");
+    if (tg) tg.textContent = "▶";
+  }
+  return wrap;
+};
+
 // ─── Text input ───
 function sendTextInput() {
   const t = textInput.value.trim(); if (!t && !pendingImage) return;
