@@ -440,9 +440,9 @@ function wsUrl() {
 
 function connect() {
   ws = new WebSocket(wsUrl());
-  ws.onopen = () => { reconnectAttempts = 0; reconnectOverlay.classList.add("hidden"); statusIndicator.innerHTML = '<span class="status-dot connected"></span><span class="status-text">Connected</span>'; statusIndicator.className = "flex items-center gap-1.5 text-xs text-green-400/70"; updateConnectionStatus(true); };
+  ws.onopen = () => { reconnectAttempts = 0; reconnectOverlay.classList.add("hidden"); statusIndicator.innerHTML = '<span class="status-dot connected"></span><span class="status-text">Connected</span>'; statusIndicator.className = "text-xs flex items-center gap-1.5 text-green-400/70"; updateConnectionStatus(true); };
   ws.onmessage = (e) => { try { handleMessage(JSON.parse(e.data)); } catch {} };
-  ws.onclose = () => { statusIndicator.innerHTML = '<span class="status-dot disconnected"></span><span class="status-text">Disconnected</span>'; statusIndicator.className = "flex items-center gap-1.5 text-xs text-amber-400"; updateConnectionStatus(false); reconnectOverlay.classList.remove("hidden"); scheduleReconnect(); };
+  ws.onclose = () => { statusIndicator.innerHTML = '<span class="status-dot disconnected"></span><span class="status-text">Disconnected</span>'; statusIndicator.className = "text-xs flex items-center gap-1.5 text-amber-400"; updateConnectionStatus(false); reconnectOverlay.classList.remove("hidden"); scheduleReconnect(); };
   ws.onerror = () => {};
 }
 
