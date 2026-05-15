@@ -1060,14 +1060,13 @@ renderers.tool_call = (data, id) => {
   }
   body.innerHTML = bodyHtml;
 
+  // Collapsed by default
+  body.classList.add("collapsed");
+  const toggleEl = header.querySelector(".tool-toggle");
+  if (toggleEl) toggleEl.textContent = "▶";
+
   wrap.appendChild(header);
   wrap.appendChild(body);
-  if (toolsHidden) {
-    const bd = wrap.querySelector(".tool-call-body");
-    const tg = wrap.querySelector(".tool-toggle");
-    if (bd) bd.classList.add("collapsed");
-    if (tg) tg.textContent = "▶";
-  }
   return wrap;
 };
 
