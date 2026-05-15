@@ -115,12 +115,6 @@ When visual mode is active, the `visual` tool becomes available to the LLM. It r
 - **Terminal sync** — messages typed in the terminal appear in the browser, and vice versa
 - **Auto-reconnection** — reconnects with exponential backoff if the connection drops
 
-## Screenshots
-
-| Dark Theme | Light Theme |
-|-----------|-------------|
-| ![Dark theme](review-dark.png) | ![Light theme](review-light.png) |
-
 ## Architecture
 
 ```
