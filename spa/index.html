@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
+<body class="bg-zinc-950 text-zinc-100 h-screen overflow-hidden flex flex-col">
   <header class="header-bar flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-50">
     <div class="flex items-center gap-2.5">
       <span class="pi-logo">π</span>
@@ -30,7 +30,7 @@
       <button id="toggle-tools-btn" class="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-md border border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 transition-colors">Expand Tools</button>
     </div>
   </header>
-  <main id="chat-container" class="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-4xl w-full mx-auto">
+  <main id="chat-container" class="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-4 max-w-4xl w-full mx-auto">
     <div id="empty-state" class="flex items-center justify-center h-64 text-zinc-600 text-sm">
       Send a message to start chatting...
     </div>
