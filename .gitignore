@@ -17,3 +17,6 @@ Desktop.ini
 # Logs
 *.log
 npm-debug.log*
+
+# Local docs
+docs/superpowers/

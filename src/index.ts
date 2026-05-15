@@ -73,7 +73,7 @@ async function getPortlessInfo(port: number, cwd: string, sessionId: string): Pr
     const sanitized = folder.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
     const sessionPrefix = (sessionId || "xxxx").substring(0, 4);
     const rawHostname = `pi-chat-${sanitized}-${sessionPrefix}`;
-    const hostname = parseHostname(rawHostname).replace(/\.localhost$/, "");
+    const hostname = parseHostname(rawHostname);
 
     const store = new RouteStore(portlessDir);
     store.ensureDir();
@@ -84,7 +84,7 @@ async function getPortlessInfo(port: number, cwd: string, sessionId: string): Pr
     const protocol = tlsEnabled ? "https" : "http";
     const defaultPort = tlsEnabled ? 443 : 80;
     const portSuffix = proxyPort === defaultPort ? "" : `:${proxyPort}`;
-    const url = `${protocol}://${hostname}.localhost${portSuffix}`;
+    const url = `${protocol}://${hostname}${portSuffix}`;
 
     debug.log("Portless route registered:", hostname, "→ port", port, "url:", url);
     return { hostname, url, routeStore: store };
