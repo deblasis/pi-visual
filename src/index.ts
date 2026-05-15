@@ -381,13 +381,14 @@ export default function (pi: ExtensionAPI) {
 
   // Forward terminal input to web UI
   pi.on("input", async (event) => {
-    if (!state.active || !state.server) return;
+    if (!state.active || !state.server) return { action: "continue" };
     // Only forward input typed in the terminal (not from our own extension)
-    if (event.source !== "interactive") return;
+    if (event.source !== "interactive") return { action: "continue" };
     const images = event.images?.length
       ? event.images.map(img => ({ mimeType: img.mimeType, data: img.data }))
       : undefined;
     state.server.pushTerminalChat(event.text, images);
+    return { action: "continue" };
   });
 
   // Capture assistant text responses and forward to browser
