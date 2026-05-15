@@ -176,7 +176,7 @@ export default function (pi: ExtensionAPI) {
         pushCommands();
         pushStatus();
       };
-      server.onInteraction = (msg: ClientMessage) => {
+      server.onInteraction = async (msg: ClientMessage) => {
         try {
           const msgPreview = { ...msg };
           if (msgPreview.images) msgPreview.images = [`[${msgPreview.images?.length ?? 0} image(s)]`];
@@ -193,12 +193,12 @@ export default function (pi: ExtensionAPI) {
                     : `Interacted: ${msg.blockId}`;
 
             debug.log("Sending interaction as steer:", actionText);
-            pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
+            await pi.sendUserMessage(`[visual] ${actionText}`, { deliverAs: "steer" });
           } else if (msg.type === "text") {
             // Echo user message to browser chat
             const hasImages = Array.isArray(msg.images) && msg.images.length > 0;
             const images = hasImages ? msg.images : undefined;
-            debug.log("pushUserChat, text:", (msg.text || "").substring(0, 50), "images:", images?.length ?? 0);
+            debug.log("pushUserChat, text:", (msg.text || "").substring(0, 50), "images:", images?.length ?? 0, "hasImages:", hasImages);
             server.pushUserChat(msg.text || "(image)", images);
 
             // Show thinking indicator
@@ -211,13 +211,16 @@ export default function (pi: ExtensionAPI) {
                 content.push({ type: "text", text: msg.text });
               }
               for (const img of msg.images) {
-                content.push({ type: "image", data: img.data || "", mimeType: img.mediaType || "image/png" });
+                const imgData = img.data || "";
+                const imgMime = img.mediaType || "image/png";
+                debug.log("  image item: mimeType=", imgMime, "dataLength=", imgData.length);
+                content.push({ type: "image", data: imgData, mimeType: imgMime });
               }
-              debug.log("sendUserMessage multimodal, items:", content.length);
-              pi.sendUserMessage(content);
+              debug.log("sendUserMessage multimodal, items:", content.length, "totalBytes:", content.reduce((s, c) => s + (c.type === "image" ? c.data.length : 0), 0));
+              await pi.sendUserMessage(content);
             } else if (msg.text) {
               debug.log("sendUserMessage text:", msg.text.substring(0, 100));
-              pi.sendUserMessage(msg.text);
+              await pi.sendUserMessage(msg.text);
             } else {
               debug.warn("No text or images to send");
             }
@@ -225,6 +228,7 @@ export default function (pi: ExtensionAPI) {
         } catch (err) {
           debug.error("onInteraction ERROR:", err);
           const errMsg = err instanceof Error ? err.message : String(err);
+          server.pushThinkingEnd();
           server.pushAssistantText(`[pi-visual] Error: ${errMsg}`);
         }
       };

@@ -91,6 +91,11 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         try {
           const msg: ClientMessage = JSON.parse(raw.toString());
           debug.log("WS received:", JSON.stringify(msg).substring(0, 200));
+          // Log image details if present
+          if (msg.type === "text" && Array.isArray((msg as any).images)) {
+            const imgs = (msg as any).images;
+            debug.log("WS images:", imgs.length, "item(s), data lengths:", imgs.map((i: any) => i.data?.length ?? 0));
+          }
           if (msg.type === "interaction" || msg.type === "text") {
             if (!instance?.onInteraction) {
               debug.log("Queuing message, handler not ready yet");
