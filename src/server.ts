@@ -6,6 +6,12 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage, Block, ChatItem, CommandItem } from "./protocol.js";
 import * as debug from "./debug.js";
 
+// Monotonic counter to avoid Date.now() collisions
+let _idCounter = 0;
+function nextId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${++_idCounter}`;
+}
+
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
   ".css": "text/css",
@@ -49,7 +55,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
     const pendingMessages: ClientMessage[] = [];
 
     function send(msg: object) {
-      if (activeWs?.readyState === 1) activeWs.send(JSON.stringify(msg));
+      if (activeWs?.readyState === WebSocket.OPEN) activeWs.send(JSON.stringify(msg));
     }
 
     const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -160,10 +166,12 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
       },
       clearBlocks() {
         history.length = 0;
+        thinkingId = null;
+        workingId = null;
         send({ type: "clear" });
       },
       pushUserChat(text: string, images?: Array<{ mediaType: string; data: string }>) {
-        const id = `user-${Date.now()}`;
+        const id = nextId("user");
         const item: ChatItem = { type: "user_chat", id, text, ...(images?.length ? { images } : {}) };
         history.push(item);
         send({ type: "user_chat", id, text, ...(images?.length ? { images } : {}) });
@@ -182,14 +190,14 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
           workingId = null;
         }
 
-        const id = `assistant-${Date.now()}`;
+        const id = nextId("assistant");
         const item: ChatItem = { type: "assistant_chat", id, text, ...(images?.length ? { images } : {}) };
         history.push(item);
         send({ type: "assistant_chat", id, text, ...(images?.length ? { images } : {}) });
       },
       pushThinkingStart() {
         if (thinkingId) return; // Already thinking
-        thinkingId = `thinking-${Date.now()}`;
+        thinkingId = nextId("thinking");
         const item: ChatItem = { type: "thinking", id: thinkingId };
         history.push(item);
         send({ type: "thinking_start", id: thinkingId });
@@ -203,7 +211,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
       },
       pushWorkingStart() {
         if (workingId) return;
-        workingId = `working-${Date.now()}`;
+        workingId = nextId("working");
         send({ type: "working_start", id: workingId });
       },
       pushWorkingEnd() {
@@ -212,7 +220,7 @@ export function createVisualServer(spaDir: string): Promise<VisualServer> {
         workingId = null;
       },
       pushTerminalChat(text: string, images?: Array<{ mimeType: string; data: string }>) {
-        const id = `terminal-${Date.now()}`;
+        const id = nextId("terminal");
         const item: ChatItem = { type: "terminal_chat", id, text, ...(images?.length ? { images } : {}) };
         history.push(item);
         send({ type: "terminal_chat", id, text, ...(images?.length ? { images } : {}) });

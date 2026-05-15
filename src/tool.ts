@@ -115,14 +115,15 @@ Guidelines:
         return block;
       }));
 
+      const now = Date.now();
       const blocksWithIds: Block[] = resolvedBlocks.map((block, i) => ({
-        id: `block-${Date.now()}-${i}`,
+        id: `block-${now}-${i}`,
         type: block.type as BlockType,
         content: block.content,
         ...(block.style ? { style: block.style } : {}),
       }));
 
-      const messageId = `msg-${Date.now()}`;
+      const messageId = `msg-${now}`;
       state.server.pushBlocks(messageId, blocksWithIds);
       state.blocksRendered += blocksWithIds.length;
 

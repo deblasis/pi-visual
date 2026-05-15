@@ -192,10 +192,16 @@ function maybeScrollToBottom() {
 }
 
 // ─── Helpers ───
+const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const _escapeRe = /[&<>"]/g;
 function escapeHtml(s) {
-  const d = document.createElement("div");
-  d.textContent = typeof s === "string" ? s : JSON.stringify(s);
-  return d.innerHTML;
+  return String(typeof s === "string" ? s : JSON.stringify(s)).replace(_escapeRe, c => _escapeMap[c]);
+}
+
+// Monotonic counter for client-side IDs
+let _clientIdCounter = 0;
+function nextClientId(prefix) {
+  return `${prefix}-${Date.now()}-${++_clientIdCounter}`;
 }
 
 function sendToServer(msg) {
@@ -901,11 +907,18 @@ R.entity_relation = (c, _id, cls) => {
   return d;
 };
 
+const _safeSrcRe = /^(data:image\/|https?:\/\/|\/|\.\/)/;
 // image
 R.image = (c, _id, cls) => {
   const d = document.createElement("div"); d.className = cls;
+  const src = String(c.src || "");
+  if (!src || !_safeSrcRe.test(src)) {
+    d.className += " block-card";
+    d.innerHTML = `<p class="text-zinc-500 text-xs">Blocked unsafe image src</p>`;
+    return d;
+  }
   const img = document.createElement("img");
-  img.src = c.src; if (c.alt) img.alt = c.alt;
+  img.src = src; if (c.alt) img.alt = c.alt;
   img.className = "rounded-lg max-w-full"; img.style.maxHeight = "400px";
   d.appendChild(img);
   if (c.caption) { const cap = document.createElement("p"); cap.className = "text-xs text-zinc-500 mt-2"; cap.textContent = c.caption; d.appendChild(cap); }
@@ -918,7 +931,7 @@ R.svg = (c, _id, cls) => {
   const iframe = document.createElement("iframe");
   iframe.style.width = "100%"; iframe.style.minHeight = "200px"; iframe.style.border = "none"; iframe.style.borderRadius = "0.5rem";
   iframe.srcdoc = `<!DOCTYPE html><html><head><style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#18181b;}</style></head><body>${c.content || ""}</body></html>`;
-  iframe.sandbox = "allow-same-origin";
+  iframe.sandbox = "";
   d.appendChild(iframe); return d;
 };
 
