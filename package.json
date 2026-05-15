@@ -2,7 +2,13 @@
   "name": "pi-visual",
   "version": "0.1.0",
   "description": "Visual interaction extension for pi coding agent",
+  "type": "module",
   "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:sync": "node scripts/dev-sync.js"
+  },
   "pi": {
     "extensions": [
       "./src/index.ts"
@@ -14,7 +20,8 @@
   "devDependencies": {
     "@types/ws": "^8.18.0",
     "portless": "^0.13.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
