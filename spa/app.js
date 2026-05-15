@@ -1018,7 +1018,6 @@ renderers.tool_call = (data, id) => {
   const wrap = document.createElement("div");
   wrap.id = id;
   wrap.className = "tool-call-card" + (result === undefined ? " tool-running" : (isError ? " tool-error" : " tool-success"));
-  wrap.style.borderLeftColor = color;
 
   const header = document.createElement("div");
   header.className = "tool-call-header";
@@ -1026,10 +1025,10 @@ renderers.tool_call = (data, id) => {
   const statusText = result === undefined ? "●" : (isError ? "✗" : "✓");
   header.innerHTML = `
     <span class="tool-icon">${icon}</span>
-    <span class="tool-name" style="color:${color}">${escapeHtml(toolName)}</span>
+    <span class="tool-pill" style="background:${color}20;color:${color}">${escapeHtml(toolName)}</span>
     <span class="tool-brief">${escapeHtml(brief)}</span>
     <span class="tool-status ${statusClass}">${statusText}</span>
-    <span class="tool-toggle">▼</span>
+    <span class="tool-toggle">▶</span>
   `;
   header.onclick = () => toggleToolCall(wrap);
 
@@ -1062,8 +1061,6 @@ renderers.tool_call = (data, id) => {
 
   // Collapsed by default
   body.classList.add("collapsed");
-  const toggleEl = header.querySelector(".tool-toggle");
-  if (toggleEl) toggleEl.textContent = "▶";
 
   wrap.appendChild(header);
   wrap.appendChild(body);
