@@ -1,4 +1,31 @@
 /* Chat bubbles */
+
+/* Header */
+.header-bar {
+  position: relative;
+}
+.header-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6 0%, transparent 100%);
+}
+.pi-logo {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #3b82f6;
+  line-height: 1;
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.connected { background: #4ade80; }
+.status-dot.disconnected { background: #71717a; }
+.status-dot.reconnecting { background: #fbbf24; animation: pulse 1.5s infinite; }
+
 .msg-user {
   display: flex;
   justify-content: flex-end;
@@ -240,11 +267,8 @@
 /* Textarea */
 #text-input { max-height: 120px; min-height: 38px; }
 
-/* Status bar */
+/* Status bar (now in footer) */
 #status-bar { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-#status-bar .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
-#status-bar .status-dot.connected { background: #4ade80; }
-#status-bar .status-dot.disconnected { background: #71717a; }
 
 /* Autocomplete */
 #autocomplete-dropdown { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -435,6 +459,11 @@
 [data-theme="light"] .theme-btn:hover {
   color: #18181b;
   border-color: #a1a1aa;
+}
+
+/* --- Header gradient in light mode --- */
+[data-theme="light"] .header-bar::after {
+  background: linear-gradient(90deg, #3b82f6 0%, rgba(59,130,246,0.3) 40%, transparent 100%);
 }
 
 /* --- Chat bubbles --- */

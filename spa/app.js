@@ -57,13 +57,18 @@ function initVirtualization() {
   }, { root: chatContainer, rootMargin: `${BUFFER_PX}px 0px ${BUFFER_PX}px 0px` });
 
   virtualRO = new ResizeObserver((entries) => {
+    let needScroll = false;
     for (const entry of entries) {
       const item = itemByElement.get(entry.target);
       if (item?.rendered) {
         const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-        if (h > 0) item.height = h;
+        if (h > 0 && h !== item.height) {
+          item.height = h;
+          needScroll = true;
+        }
       }
     }
+    if (needScroll) maybeScrollToBottom();
   });
 }
 
@@ -435,9 +440,9 @@ function wsUrl() {
 
 function connect() {
   ws = new WebSocket(wsUrl());
-  ws.onopen = () => { reconnectAttempts = 0; reconnectOverlay.classList.add("hidden"); statusIndicator.textContent = "● Connected"; statusIndicator.className = "text-xs text-green-400"; updateConnectionStatus(true); };
+  ws.onopen = () => { reconnectAttempts = 0; reconnectOverlay.classList.add("hidden"); statusIndicator.innerHTML = '<span class="status-dot connected"></span><span class="status-text">Connected</span>'; statusIndicator.className = "flex items-center gap-1.5 text-xs text-green-400/70"; updateConnectionStatus(true); };
   ws.onmessage = (e) => { try { handleMessage(JSON.parse(e.data)); } catch {} };
-  ws.onclose = () => { statusIndicator.textContent = "○ Disconnected"; statusIndicator.className = "text-xs text-zinc-500"; updateConnectionStatus(false); reconnectOverlay.classList.remove("hidden"); scheduleReconnect(); };
+  ws.onclose = () => { statusIndicator.innerHTML = '<span class="status-dot disconnected"></span><span class="status-text">Disconnected</span>'; statusIndicator.className = "flex items-center gap-1.5 text-xs text-amber-400"; updateConnectionStatus(false); reconnectOverlay.classList.remove("hidden"); scheduleReconnect(); };
   ws.onerror = () => {};
 }
 

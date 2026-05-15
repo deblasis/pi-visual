@@ -14,10 +14,14 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
-  <header class="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-50">
-    <div class="flex items-center gap-2">
-      <span class="text-lg font-semibold text-zinc-100">pi visual</span>
-      <span id="status-indicator" class="text-xs text-zinc-500">Connecting...</span>
+  <header class="header-bar flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-2.5">
+      <span class="pi-logo">π</span>
+      <span class="text-base font-bold tracking-tight">pi visual</span>
+      <span id="status-indicator" class="flex items-center gap-1.5 text-xs">
+        <span class="status-dot disconnected"></span>
+        <span class="status-text">Connecting...</span>
+      </span>
     </div>
     <div class="flex items-center gap-2">
       <button id="theme-toggle" class="theme-btn p-1.5 rounded-md transition-colors" title="Switch theme">
@@ -31,16 +35,15 @@
       Send a message to start chatting...
     </div>
   </main>
-  <div id="status-bar" class="border-t border-zinc-800 bg-zinc-900 px-4 py-1.5 flex items-center gap-4 text-xs text-zinc-500 shrink-0">
-    <div class="max-w-4xl w-full mx-auto flex items-center gap-4">
-      <span id="status-connection" class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>disconnected</span>
-      <span id="status-model" class="truncate"></span>
-      <span id="status-cwd" class="truncate hidden sm:inline"></span>
-      <span id="status-session" class="ml-auto hidden sm:inline text-zinc-600"></span>
-    </div>
-  </div>
   <footer class="border-t border-zinc-800 bg-zinc-900/80 backdrop-blur px-4 py-3 sticky bottom-0 relative">
     <div class="max-w-4xl mx-auto">
+      <!-- Status info row -->
+      <div id="status-bar" class="flex items-center gap-4 text-xs text-zinc-500 mb-2">
+        <span id="status-connection" class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>disconnected</span>
+        <span id="status-model" class="truncate"></span>
+        <span id="status-cwd" class="truncate hidden sm:inline"></span>
+        <span id="status-session" class="ml-auto hidden sm:inline text-zinc-600"></span>
+      </div>
       <!-- Drop zone overlay -->
       <div id="drop-overlay" class="hidden absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-400 rounded-lg z-10 flex items-center justify-center pointer-events-none">
         <span class="text-blue-300 text-sm font-medium">Drop image here</span>
