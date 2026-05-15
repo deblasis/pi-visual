@@ -370,10 +370,14 @@ export default function (pi: ExtensionAPI) {
   // Register the visual tool (but deactivate immediately — pi auto-activates all extension tools)
   const visualTool = createVisualTool(() => state);
   pi.registerTool(visualTool);
-  // Defer setActiveTools to avoid calling action method during extension loading
-  setTimeout(() => {
+
+  // Deactivate the visual tool on every session start (startup, reload, resume, fork).
+  // pi auto-activates ALL extension tools on startup and reload, so we must
+  // remove it here to prevent the LLM from seeing/calling it when /visual hasn't
+  // been explicitly started by the user.
+  pi.on("session_start", () => {
     pi.setActiveTools(pi.getActiveTools().filter((t) => t !== "visual"));
-  }, 0);
+  });
 
   // Forward terminal input to web UI
   pi.on("input", async (event) => {
