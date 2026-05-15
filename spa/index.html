@@ -48,20 +48,20 @@
       <div id="drop-overlay" class="hidden absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-400 rounded-lg z-10 flex items-center justify-center pointer-events-none">
         <span class="text-blue-300 text-sm font-medium">Drop image here</span>
       </div>
-      <div class="flex gap-2 items-end relative">
+      <div class="flex gap-2 items-stretch relative">
         <div id="autocomplete-dropdown" class="hidden absolute bottom-full left-0 right-16 mb-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
         </div>
         <div class="flex-1 relative">
           <textarea id="text-input" rows="1" placeholder="Type a message or paste/drop an image..."
-            class="w-full bg-zinc-800 text-zinc-100 rounded-lg px-3 py-2 pr-16 text-sm resize-none border border-zinc-700 focus:border-blue-500 focus:outline-none placeholder-zinc-500"></textarea>
-          <div class="absolute right-2 bottom-1.5 flex items-center gap-1">
-            <button id="upload-btn" class="text-zinc-500 hover:text-zinc-300 text-sm p-0.5" title="Upload image">
+            class="w-full bg-zinc-800 text-zinc-100 rounded-lg px-3 py-2 pr-10 text-sm resize-none border border-zinc-700 focus:border-blue-500 focus:outline-none placeholder-zinc-500"></textarea>
+          <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+            <button id="upload-btn" class="text-zinc-500 hover:text-zinc-300 p-0.5" title="Upload image">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
             </button>
             <input type="file" id="file-input" accept="image/*" class="hidden">
           </div>
         </div>
-        <button id="send-btn" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors self-end">
+        <button id="send-btn" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 text-sm font-medium transition-colors self-end">
           Send
         </button>
       </div>
