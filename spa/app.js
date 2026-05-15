@@ -1255,6 +1255,15 @@ function updateThemeIcon() {
 }
 
 function circularRevealTransition(x, y, newTheme) {
+  // Skip animation if resolved theme doesn't change
+  const oldEffective = document.documentElement.getAttribute('data-theme') || 'dark';
+  const newEffective = newTheme === 'system' ? getSystemTheme() : newTheme;
+  if (oldEffective === newEffective) {
+    currentTheme = newTheme;
+    localStorage.setItem('pi-theme', newTheme);
+    updateThemeIcon();
+    return;
+  }
   // Capture the OLD background color
   const oldBg = getComputedStyle(document.body).backgroundColor;
   // Max radius to cover entire viewport from click point
