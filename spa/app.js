@@ -614,23 +614,81 @@ R.choice = (c, id, cls) => {
   if (c.prompt) w.innerHTML += `<p class="text-sm text-zinc-300 mb-3">${escapeHtml(c.prompt)}</p>`;
   const grid = document.createElement("div"); grid.className = c.multi ? "space-y-2" : "grid grid-cols-1 sm:grid-cols-2 gap-3";
   const sel = c.multi ? new Set() : null;
+  let submitted = false;
+  let submitBtn = null;
+  function updateMultiSubmitBtn() {
+    if (!submitBtn) return;
+    const count = sel.size;
+    if (count === 0) {
+      submitBtn.textContent = "Select options above to submit";
+      submitBtn.classList.add("disabled");
+    } else {
+      submitBtn.textContent = `Submit ${count} selected option${count > 1 ? 's' : ''}`;
+      submitBtn.classList.remove("disabled");
+    }
+  }
+  function lockCards() {
+    grid.querySelectorAll(".choice-card").forEach(card => {
+      if (!card.classList.contains("selected")) card.classList.add("disabled");
+    });
+  }
+  function unlockCards() {
+    grid.querySelectorAll(".choice-card").forEach(card => {
+      card.classList.remove("disabled", "confirmed");
+      const si = card.querySelector(".choice-status"); if (si) si.remove();
+    });
+  }
   for (const o of c.options || []) {
     const card = document.createElement("div"); card.className = "choice-card";
     card.innerHTML = `<h4 class="font-medium text-zinc-100">${escapeHtml(o.title)}</h4>${o.description ? `<p class="text-xs text-zinc-400 mt-1">${escapeHtml(o.description)}</p>` : ""}`;
+    const status = document.createElement("div"); status.className = "choice-status";
     const mb = document.createElement("button"); mb.className = "tell-more-btn"; mb.textContent = "Tell me more →"; mb.onclick = e => { e.stopPropagation(); sendTellMore(o.title); };
     card.appendChild(mb);
+    card.appendChild(status);
     if (c.multi) {
-      card.onclick = () => { if (sel.has(o.value)) { sel.delete(o.value); card.classList.remove("selected"); } else { sel.add(o.value); card.classList.add("selected"); } };
+      card.onclick = () => {
+        if (submitted) return;
+        if (sel.has(o.value)) { sel.delete(o.value); card.classList.remove("selected"); } else { sel.add(o.value); card.classList.add("selected"); }
+        updateMultiSubmitBtn();
+      };
     } else {
-      card.onclick = () => { grid.querySelectorAll(".choice-card").forEach(x => x.classList.remove("selected")); card.classList.add("selected"); sendInteraction(id, "select", o.value); };
+      card.onclick = () => {
+        if (submitted) return;
+        grid.querySelectorAll(".choice-card").forEach(x => {
+          x.classList.remove("selected", "confirmed");
+          const si = x.querySelector(".choice-status"); if (si) si.innerHTML = "";
+        });
+        card.classList.add("selected", "confirmed");
+        status.innerHTML = `<span class="choice-selected-indicator">✓ Selected</span> <button class="choice-change-btn">Change</button>`;
+        status.querySelector(".choice-change-btn").onclick = e => {
+          e.stopPropagation();
+          submitted = false;
+          unlockCards();
+          card.classList.remove("selected", "confirmed");
+          status.innerHTML = "";
+        };
+        lockCards();
+        submitted = true;
+        sendInteraction(id, "select", o.value);
+      };
     }
     grid.appendChild(card);
   }
   w.appendChild(grid);
   if (c.multi) {
-    const sb = document.createElement("button"); sb.className = "mt-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"; sb.textContent = "Submit Selection";
-    sb.onclick = () => sendInteraction(id, "submit", undefined, Object.fromEntries([...sel].map((v, i) => ["opt" + i, v])));
-    w.appendChild(sb);
+    submitBtn = document.createElement("button");
+    submitBtn.className = "choice-submit-btn disabled";
+    submitBtn.textContent = "Select options above to submit";
+    submitBtn.onclick = () => {
+      if (submitted || sel.size === 0) return;
+      submitted = true;
+      lockCards();
+      submitBtn.textContent = `✓ Submitted (${sel.size} selected)`;
+      submitBtn.classList.remove("disabled");
+      submitBtn.classList.add("submitted");
+      sendInteraction(id, "submit", undefined, Object.fromEntries([...sel].map((v, i) => ["opt" + i, v])));
+    };
+    w.appendChild(submitBtn);
   }
   if (c.options?.length >= 2) { const pb = document.createElement("button"); pb.className = "pros-cons-btn"; pb.innerHTML = "⚖️ Pros/Cons Analysis"; pb.onclick = () => sendProsCons(c.options); w.appendChild(pb); }
   return w;
