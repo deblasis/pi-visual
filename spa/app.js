@@ -231,23 +231,24 @@ function renderMarkdown(text) {
           breaks: true,
           gfm: true,
           renderer: {
-            code(code, lang) {
+            code({ text, lang }) {
               const language = lang || '';
+              const codeText = text || '';
               let highlighted;
               if (window.hljs && language && hljs.getLanguage(language)) {
                 try {
-                  highlighted = hljs.highlight(code, { language }).value;
+                  highlighted = hljs.highlight(codeText, { language }).value;
                 } catch {
-                  highlighted = escapeHtml(code);
+                  highlighted = escapeHtml(codeText);
                 }
               } else if (window.hljs) {
                 try {
-                  highlighted = hljs.highlightAuto(code).value;
+                  highlighted = hljs.highlightAuto(codeText).value;
                 } catch {
-                  highlighted = escapeHtml(code);
+                  highlighted = escapeHtml(codeText);
                 }
               } else {
-                highlighted = escapeHtml(code);
+                highlighted = escapeHtml(codeText);
               }
               return `<pre><code class="hljs language-${escapeHtml(language)}">${highlighted}</code></pre>`;
             }
@@ -553,13 +554,27 @@ R.code = (c, _id, cls) => {
   const d = document.createElement("div"); d.className = `block-card ${cls}`;
   if (c.language) d.innerHTML = `<div class="text-xs text-zinc-500 mb-2">${escapeHtml(c.language)}</div>`;
   const pre = document.createElement("pre"); pre.className = "text-sm overflow-x-auto rounded-lg bg-zinc-950 p-3";
-  pre.textContent = c.code || "";
-  d.appendChild(pre);
-  if (window.shiki) {
-    shiki.createHighlighter({ themes: ["github-dark"], langs: c.language ? [c.language] : ["text"] })
-      .then(h => { pre.innerHTML = h.codeToHtml(c.code || "", { lang: c.language || "text", theme: "github-dark" }); })
-      .catch(() => {});
+  const codeEl = document.createElement("code");
+  const language = c.language || '';
+  codeEl.className = `hljs${language ? ` language-${escapeHtml(language)}` : ''}`;
+  const codeText = c.code || "";
+  if (window.hljs && language && hljs.getLanguage(language)) {
+    try {
+      codeEl.innerHTML = hljs.highlight(codeText, { language }).value;
+    } catch {
+      codeEl.textContent = codeText;
+    }
+  } else if (window.hljs) {
+    try {
+      codeEl.innerHTML = hljs.highlightAuto(codeText).value;
+    } catch {
+      codeEl.textContent = codeText;
+    }
+  } else {
+    codeEl.textContent = codeText;
   }
+  pre.appendChild(codeEl);
+  d.appendChild(pre);
   return d;
 };
 
