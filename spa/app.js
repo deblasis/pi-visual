@@ -199,22 +199,7 @@ function escapeHtml(s) {
 }
 
 function sendToServer(msg) {
-  if (ws?.readyState === WebSocket.OPEN) {
-    try {
-      ws.send(JSON.stringify(msg));
-    } catch (err) {
-      console.error('[pi-visual] Failed to send message:', err);
-      // Restore input so user doesn't lose their message
-      textInput.value = msg.text || '';
-      if (msg.images?.length) {
-        pendingImage = { mediaType: msg.images[0].mediaType, data: msg.images[0].data, name: 'image.png' };
-        previewFilename.textContent = pendingImage.name;
-        imagePreview.classList.remove('hidden');
-      }
-    }
-  } else {
-    console.warn('[pi-visual] Cannot send: WebSocket not open');
-  }
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
 function sendInteraction(blockId, action, value, values) {
@@ -1159,16 +1144,9 @@ function sendTextInput() {
   hideAutocomplete();
   const t = textInput.value.trim(); if (!t && !pendingImage) return;
   const msg = { type: "text", text: t || "" };
-  if (pendingImage) {
-    console.log('[pi-visual] Sending with image:', pendingImage.mediaType, pendingImage.data.length, 'bytes');
-    msg.images = [{ mediaType: pendingImage.mediaType, data: pendingImage.data }];
-  } else {
-    console.log('[pi-visual] Sending text only:', (t || '').substring(0, 50));
-  }
-  textInput.value = "";
-  clearPendingImage();
+  if (pendingImage) msg.images = [{ mediaType: pendingImage.mediaType, data: pendingImage.data }];
+  sendToServer(msg); textInput.value = ""; clearPendingImage();
   textInput.style.height = "auto"; textInput.style.height = "38px";
-  sendToServer(msg);
 }
 sendBtn.addEventListener("click", sendTextInput);
 textInput.addEventListener("keydown", e => {
@@ -1196,35 +1174,18 @@ textInput.addEventListener("blur", () => { setTimeout(hideAutocomplete, 150); })
 function loadImage(file) {
   const r = new FileReader();
   r.onload = () => {
-    const base64 = r.result.split(",")[1];
-    if (!base64) {
-      console.error('[pi-visual] FileReader produced no base64 data');
-      return;
-    }
-    pendingImage = { mediaType: file.type || 'image/png', data: base64, name: file.name || "image.png" };
+    pendingImage = { mediaType: file.type, data: r.result.split(",")[1], name: file.name || "image.png" };
     previewFilename.textContent = pendingImage.name;
     imagePreview.classList.remove("hidden");
-    console.log('[pi-visual] Image loaded:', pendingImage.mediaType, pendingImage.data.length, 'bytes');
-  };
-  r.onerror = () => {
-    console.error('[pi-visual] FileReader error:', r.error);
   };
   r.readAsDataURL(file);
 }
 
 document.addEventListener("paste", e => {
-  const items = e.clipboardData?.items;
-  if (!items) return;
-  for (const it of items) {
+  for (const it of e.clipboardData?.items || []) {
     if (it.type.startsWith("image/")) {
       e.preventDefault();
-      const file = it.getAsFile();
-      if (file) {
-        console.log('[pi-visual] Paste: found image:', it.type, 'size:', file.size);
-        loadImage(file);
-      } else {
-        console.error('[pi-visual] Paste: image item returned null file');
-      }
+      loadImage(it.getAsFile());
       return;
     }
   }
