@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Dev utility: copy local source to the pi-managed extension directory
-// so changes take effect on next pi restart (or /refresh)
+// so changes take effect on next pi restart (or /reload)
 
 import { cpSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -29,4 +29,4 @@ for (const { src, dest } of targets) {
   console.log(`✓ ${src}/ → ${destPath}`);
 }
 
-console.log("\nRestart pi or run /refresh to pick up the changes.");
+console.log("\nRestart pi or run /reload to pick up the changes.");
