@@ -632,11 +632,19 @@ R.choice = (c, id, cls) => {
       if (!card.classList.contains("selected")) card.classList.add("disabled");
     });
   }
+  function unlockCards() {
+    grid.querySelectorAll(".choice-card").forEach(card => {
+      card.classList.remove("disabled", "confirmed");
+      const si = card.querySelector(".choice-status"); if (si) si.remove();
+    });
+  }
   for (const o of c.options || []) {
     const card = document.createElement("div"); card.className = "choice-card";
     card.innerHTML = `<h4 class="font-medium text-zinc-100">${escapeHtml(o.title)}</h4>${o.description ? `<p class="text-xs text-zinc-400 mt-1">${escapeHtml(o.description)}</p>` : ""}`;
+    const status = document.createElement("div"); status.className = "choice-status";
     const mb = document.createElement("button"); mb.className = "tell-more-btn"; mb.textContent = "Tell me more →"; mb.onclick = e => { e.stopPropagation(); sendTellMore(o.title); };
     card.appendChild(mb);
+    card.appendChild(status);
     if (c.multi) {
       card.onclick = () => {
         if (submitted) return;
@@ -646,12 +654,19 @@ R.choice = (c, id, cls) => {
     } else {
       card.onclick = () => {
         if (submitted) return;
-        grid.querySelectorAll(".choice-card").forEach(x => x.classList.remove("selected"));
-        card.classList.add("selected");
-        // Add selected indicator
-        grid.querySelectorAll(".choice-selected-indicator").forEach(el => el.remove());
-        const indicator = document.createElement("span"); indicator.className = "choice-selected-indicator"; indicator.textContent = "✓ Selected";
-        card.appendChild(indicator);
+        grid.querySelectorAll(".choice-card").forEach(x => {
+          x.classList.remove("selected", "confirmed");
+          const si = x.querySelector(".choice-status"); if (si) si.innerHTML = "";
+        });
+        card.classList.add("selected", "confirmed");
+        status.innerHTML = `<span class="choice-selected-indicator">✓ Selected</span> <button class="choice-change-btn">Change</button>`;
+        status.querySelector(".choice-change-btn").onclick = e => {
+          e.stopPropagation();
+          submitted = false;
+          unlockCards();
+          card.classList.remove("selected", "confirmed");
+          status.innerHTML = "";
+        };
         lockCards();
         submitted = true;
         sendInteraction(id, "select", o.value);

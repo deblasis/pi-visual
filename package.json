@@ -19,7 +19,6 @@
   },
   "devDependencies": {
     "@types/ws": "^8.18.0",
-    "happy-dom": "^20.9.0",
     "portless": "^0.13.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
