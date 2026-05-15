@@ -4,11 +4,11 @@ A [pi](https://github.com/earendil-works/pi-coding-agent) extension that renders
 
 Turn your terminal coding agent into a rich visual experience with **23 block types**, **bidirectional chat**, **dark/light themes**, and **live tool call visibility**.
 
-![pi-visual dark theme](review-dark.png)
+https://github.com/user-attachments/assets/edee1243-ec8b-42fc-a1a2-7deb84b4e8eb
 
 ## Features
 
-- 🎨 **23 visual block types** — charts, diagrams, code, interactive forms, and more
+- 🎨 **23+ visual block types** — charts, diagrams, code, interactive forms, and more
 - 💬 **Bidirectional chat** — send messages and images from the browser, see full conversation history
 - 🌓 **Dark / Light / System theme** — Telegram-style circular reveal animation
 - 🔧 **Live tool call visibility** — see which tools the agent calls in real time with collapsible output
