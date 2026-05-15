@@ -207,9 +207,9 @@ export default function (pi: ExtensionAPI) {
             // Forward to pi
             if (hasImages) {
               const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [];
-              if (msg.text) {
-                content.push({ type: "text", text: msg.text });
-              }
+              const imgCount = msg.images.length;
+              const textWithIndicator = (msg.text ? msg.text + "\n" : "") + `[📷 ${imgCount} image${imgCount > 1 ? "s" : ""} attached via web UI]`;
+              content.push({ type: "text", text: textWithIndicator });
               for (const img of msg.images) {
                 const imgData = img.data || "";
                 const imgMime = img.mediaType || "image/png";

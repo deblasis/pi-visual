@@ -488,7 +488,6 @@ function handleMessage(msg) {
       }
       break;
     case "user_chat":
-      console.log('[pi-visual] user_chat received, images:', msg.images?.length ?? 0);
       registerVirtualItem(msg.id, "user_chat", { text: msg.text, images: msg.images });
       break;
     case "terminal_chat":
@@ -938,16 +937,9 @@ renderers.user_chat = (data, id) => {
       const imgEl = document.createElement("img");
       imgEl.src = `data:${img.mediaType};base64,${img.data}`;
       imgEl.alt = "Uploaded image";
-      imgEl.onerror = () => { imgEl.style.display = 'none'; console.error('[pi-visual] Failed to render user image, data length:', img.data?.length); };
-      imgEl.onload = () => { console.log('[pi-visual] User image rendered OK'); };
       imgDiv.appendChild(imgEl);
     }
     bubble.appendChild(imgDiv);
-    // Add image count badge
-    const badge = document.createElement("div");
-    badge.className = "text-xs text-blue-200/70 flex items-center gap-1 mt-1";
-    badge.innerHTML = `\u{1F4F7} ${data.images.length} image${data.images.length > 1 ? 's' : ''} attached`;
-    bubble.appendChild(badge);
   }
   if (data.text) {
     const p = document.createElement("p");
