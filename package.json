@@ -1,6 +1,6 @@
 {
   "name": "pi-visual",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Visual interaction extension for pi coding agent",
   "type": "module",
   "main": "src/index.ts",
